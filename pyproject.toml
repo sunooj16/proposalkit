@@ -1,0 +1,22 @@
+[project]
+name = "proposalkit"
+version = "0.1.0"
+description = "제안서 작성용 블록 기반 보조도구"
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+ppsk = "ppsk.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ppsk*"]
+
+[tool.setuptools.package-data]
+ppsk = ["templates/**/*"]
