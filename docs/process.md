@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-26 `projects.py`. 프로젝트 축을 먼저 넣고 T-G1 게이트로 간다 — 임포트를 프로젝트 없이 하면 승인된 블록을 나중에 전부 다시 손봐야 한다)*
+*(없음 — 다음: T-27 `model.py` 개정)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-26 | `projects.py` + `projects.yaml` 스키마 — 등록부 로더, `resolve`/`selects` | `ppsk/projects.py`, `tests/test_projects.py` | 미등록 id는 `None`, 파일 부재는 빈 등록부(오류 아님). `selects(declared, project)` 순수 함수 | T-27~31, T-08,11,12,15,16 |
 | T-27 | `model.py` 개정 — `Block.projects`, `Fact.projects` | `ppsk/model.py` | 기본값 빈 목록 = 공용 | T-28,30,31 |
 | T-28 | `blocks.py` 개정 — `projects` 파싱 (알려진 선택 필드로 승격) | `ppsk/blocks.py`, `tests/test_blocks.py` | 문자열 1개도 목록으로 흡수. 미등록 id 판정은 여기가 아니라 check | T-31,16 |
 | T-29 | `scaffold`/`cmd_init` 개정 — `projects.yaml` 템플릿 + `docs/rules.md` 프로젝트 절 | `ppsk/templates/` | 빈 등록부 + 주석 예시. 기존 리포지토리에서 재실행하면 파일만 추가됨 | T-30 |
@@ -103,6 +102,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-26 | `projects.py` + `projects.yaml` 스키마 | `feat: projects.py — 프로젝트 등록부·소속 판정 (T-26)` | `selects(declared, project)` 순수 함수(미선언=공용, 미지정 수집=전부), `resolve`/`resolve_all`(alias·대소문자 흡수, 미등록은 `None`), `is_archived`/`active_ids`. 파일 부재는 빈 등록부 |
 | T-07 | `cmd_index` | `feat: cmd_index — INDEX.md 생성 (T-07)` | layer별 표(경로·정규형 tags·summary), draft 표시, 미등록 태그 경고 출력. 태그 정규화는 여기서(T-03 결정). 판정이 아니므로 항상 exit 0 → T-31로 개정 |
 | T-06 | `cmd_import` + `numbers.py` 뼈대 | `feat: cmd_import — 문단 분할 스캐폴드 (T-06)` | 헤딩 기준 분할(없으면 빈 줄), `import/<name>/`에 `status: draft`·`layer: TODO` 블록 후보 + `facts.candidates.yaml` + `tags.candidates.txt`. devplan §3.4 정규식을 `numbers.py`로 선작성 → T-30로 개정 |
 | T-05 | `scaffold.py` + `cmd_init` | `feat: scaffold.py + cmd_init — 리포지토리 골격 (T-05)` | `ppsk/templates/` 트리를 그대로 복사. 디렉터리 목록을 코드에 중복 선언하지 않음(빈 디렉터리는 `.gitkeep`). 기존 파일은 덮지 않아 재실행 안전. `docs/rules.md` + 한 줄 포인터 `CLAUDE.md`/`AGENTS.md`, 주석만 든 `facts.yaml`/`tags.yaml`, angle 템플릿 3종 → T-29로 개정 |
@@ -134,3 +134,4 @@ T-01 프로젝트 골격
 | 2026-08-20 | **요구사항 추가 — 프로젝트 축.** 회사에 사업이 여럿이라 한 리포지토리 안에서 프로젝트별 필터링이 필요. 블록/fact frontmatter의 `projects:` 목록 + `projects.yaml` 등록부로 구현하고, 생략은 공용으로 본다. 태그로 대신하지 않는 이유: 태그는 가중치 정렬(부드러움), 프로젝트는 누출 차단(단단함) | T-26~31 신설, T-02·03·05·06·07 개정, T-08·12·15·16 표 수정, plan §2·4·5·6·7·8 / devplan §1·2·3.3.1·3.6·4·7 |
 | 2026-08-20 | 프로젝트 축을 T-G1 게이트 **앞**에 넣기로. 임포트·승인을 먼저 하면 승인된 블록에 소속을 나중에 전부 손으로 채워야 한다 | T-26~31, T-G1 |
 | 2026-08-20 | 프로젝트별 태그 어휘 분리는 하지 않음(devplan §7 미확정으로 기록). 어휘가 실제로 갈라지는 것을 본 뒤에 나눈다 | T-04, T-24 |
+| 2026-08-20 | T-26 완료. 미등록 프로젝트 판정을 로더가 아니라 호출부에 남김 — `resolve`는 `None`을 돌려주고 `project.unregistered` error 발화는 T-12 check이 소유. tags.py와 같은 구조 |
