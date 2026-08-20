@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-06 `cmd_import`)*
+*(없음 — 다음: T-07 `cmd_index`)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-06 | `cmd_import` — 문단 분할 스캐폴드 | `ppsk/commands/import_.py` | `import/<name>/`에 `status: draft` 블록 후보 + fact/tag 후보 | T-10 (정규식 코퍼스) |
 | T-07 | `cmd_index` — `INDEX.md` 생성 | `ppsk/commands/index.py` | 경로·layer·정규형 tags·summary 출력 | — |
 | T-G1 | **1단계 게이트** — 과거 제안서 2건 임포트, 승인/병합, `tags.yaml` 초안 확정, 숫자 클래스 코퍼스 수집 | 채워진 리포지토리, `tests/fixtures/` | 코드 아님. 이 결과로 T-10 정규식과 devplan §7 미확정 1건 확정 | T-10, devplan §7 |
 
@@ -70,7 +69,7 @@ T-01 프로젝트 골격
 |---|---|---|---|---|
 | T-08 | `facts.py` 로더 — 단일 파일 / `facts/` 양쪽 | `ppsk/facts.py`, `tests/test_facts.py` | id 중복 error, 80건 초과 notice | T-09,11,12,14,18 |
 | T-09 | `facts.py` 파생 평가 — AST 화이트리스트 + 상속 | 위 파일 확장 | `eval()` 미사용, 깊이 1 강제, 금지 필드 error | T-12,14,19 |
-| T-10 | `numbers.py` — 주장성 수치 탐지 | `ppsk/numbers.py`, `tests/test_numbers.py` | T-G1 코퍼스 전건 통과 (제외 우선) | T-12 |
+| T-10 | `numbers.py` — T-G1 코퍼스로 정규식 조정 | `ppsk/numbers.py` 수정, `tests/test_numbers.py` 확장 | 코퍼스 전건 통과 (제외 우선). 뼈대와 초기 케이스는 T-06에서 선작성 | T-12 |
 | T-11 | `check.py` 뼈대 — `run_checks` + level→exit code | `ppsk/check.py` | Finding 수집·정렬·요약만 | T-12,13,17,22 |
 | T-12 | 검증 규칙 — `fact.*`, `derived.*`, `exempt.usage`, `facts.count_threshold` | `check.py` 확장, `tests/test_check.py` | 규칙 id별 최소 1케이스 | T-17,19 |
 | T-13 | 검증 규칙 — `tag.unregistered`, `block.stale`, `block.draft_used`, `angle.no_match`, `strict.not_verbatim`, `generated_from.mismatch` | 위와 동일 | 공백 정규화 후 축자 대조 | T-16,17 |
@@ -99,6 +98,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-06 | `cmd_import` + `numbers.py` 뼈대 | `feat: cmd_import — 문단 분할 스캐폴드 (T-06)` | 헤딩 기준 분할(없으면 빈 줄), `import/<name>/`에 `status: draft`·`layer: TODO` 블록 후보 + `facts.candidates.yaml` + `tags.candidates.txt`. devplan §3.4 정규식을 `numbers.py`로 선작성 |
 | T-05 | `scaffold.py` + `cmd_init` | `feat: scaffold.py + cmd_init — 리포지토리 골격 (T-05)` | `ppsk/templates/` 트리를 그대로 복사. 디렉터리 목록을 코드에 중복 선언하지 않음(빈 디렉터리는 `.gitkeep`). 기존 파일은 덮지 않아 재실행 안전. `docs/rules.md` + 한 줄 포인터 `CLAUDE.md`/`AGENTS.md`, 주석만 든 `facts.yaml`/`tags.yaml`, angle 템플릿 3종 |
 | T-04 | `tags.py` | `feat: tags.py — 통제 어휘 로더·alias 정규화 (T-04)` | `Tags` 데이터클래스(`normalize`/`normalize_all`/`unregistered_findings`) + `load_tags`. `난제` → `기술난제` 매칭, 대소문자·공백 무시. 미등록은 원문 유지 + `Counter` 누적. `_config.unregistered`로 warn/error 승격. `tags.yaml` 부재는 빈 어휘(오류 아님) |
 | T-03 | `blocks.py` | `feat: blocks.py — frontmatter 파싱·블록 스캔 (T-03)` | `parse_frontmatter`/`sha`/`load_block`/`load_blocks`. 해시는 본문만 + CRLF 정규화. 필수 필드·enum 위반 `block.malformed` error, 미지 필드 `block.unknown_field` warn. `load_blocks`는 `(blocks, findings)` 튜플 반환 — devplan §3.1 시그니처에서 변경. `tags` 정규화는 T-04 이후 |
@@ -120,3 +120,6 @@ T-01 프로젝트 골격
 | 2026-08-20 | 블록 `tags` 정규형 치환은 `load_blocks`가 아니라 호출부(T-07 index, T-16 collect)에서 하기로. blocks.py가 tags.py에 의존하지 않게 | T-04,07,13,16 |
 | 2026-08-20 | T-04 완료. 미등록 카운트를 모듈 전역이 아니라 `Tags` 인스턴스에 담음 — 테스트·다중 리포지토리에서 상태가 새지 않게. 태그 매칭 키는 공백 제거 + casefold (`기술 난제`/`kpi` 흡수) | T-07,13,16,24 |
 | 2026-08-20 | T-05 완료. 골격 정의를 `ppsk/templates/` 파일 트리 자체로 둠 — 코드의 디렉터리 목록과 템플릿이 어긋날 여지를 없앰. Windows 콘솔 cp949 인코딩 크래시를 `__main__._force_utf8_output()`에서 일괄 처리(커맨드별 문구 검열 대신) | T-06,15, 커맨드 모듈 전부 |
+| 2026-08-20 | T-06에서 `numbers.py`를 선작성. import의 fact 후보 추출에 주장성 수치 탐지가 필요한데, 임시 정규식을 커맨드에 심으면 T-10에서 두 벌이 된다. T-10은 "작성"이 아니라 "T-G1 코퍼스로 조정"으로 축소 | T-10, T-12 |
+| 2026-08-20 | devplan §7 미확정 — 문단 분할 단위를 **헤딩 우선, 헤딩 없으면 빈 줄** 로 잠정 결정. 실제 제안서 2건을 아직 못 봐서 T-G1에서 재확인 | T-06, T-G1, devplan §7 |
+| 2026-08-20 | 임포트 블록의 `layer`를 추측하지 않고 `TODO`(허용값 아님)로 남김. 계층 미판정 상태로 `core/`에 옮기면 `ppsk check`이 곧바로 error를 내게 — 조용히 틀린 계층이 박히는 것보다 낫다 | T-03,11,12 |
