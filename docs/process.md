@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-08 `facts.py` 로더. 2단계 시작)*
+*(없음 — 다음: T-09 `facts.py` 파생 평가)*
 
 ---
 
@@ -65,7 +65,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-08 | `facts.py` 로더 — 단일 파일 / `facts/` 양쪽 + 파일 단위 `_project` 상속 | `ppsk/facts.py`, `tests/test_facts.py` | id 중복 error, 80건 초과 notice, `_project`가 파일 내 전 fact에 적용되고 항목별 `projects`가 덮어씀 | T-09,11,12,14,18 |
 | T-09 | `facts.py` 파생 평가 — AST 화이트리스트 + 상속 | 위 파일 확장 | `eval()` 미사용, 깊이 1 강제, 금지 필드 error | T-12,14,19 |
 | T-11 | `check.py` 뼈대 — `run_checks` + level→exit code | `ppsk/check.py` | Finding 수집·정렬·요약만 | T-12,13,17,22 |
 | T-12 | 검증 규칙 — `fact.*`, `derived.*`, `exempt.usage`, `facts.count_threshold`, `project.unregistered`, `project.mismatch`, `project.unassigned` | `check.py` 확장, `tests/test_check.py` | 규칙 id별 최소 1케이스 | T-17,19 |
@@ -100,6 +99,7 @@ T-01 프로젝트 골격
 | T-29 | `scaffold`/`cmd_init` 개정 (T-05 개정) | `feat: scaffold — projects.yaml 템플릿 + rules 프로젝트 절 (T-29)` | 빈 등록부 + 주석 예시. `docs/rules.md`에 프로젝트 절 추가. 기존 리포지토리에서 `ppsk init` 재실행 시 `projects.yaml`만 추가됨(실행 확인) |
 | T-28 | `blocks.py` 개정 (T-03 개정) | `feat: blocks.py — projects 필드 파싱 (T-28)` | 알려진 선택 필드로 승격(미지 필드 warn 대상에서 제외), 문자열 1개도 목록으로 흡수. 미등록 id 판정은 check |
 | T-27 | `model.py` 개정 (T-02 개정) | `feat: model.py — Block/Fact 에 projects 필드 (T-27)` | `Block.projects`/`Fact.projects`, 기본값 빈 목록 = 공용 |
+| T-08 | `facts.py` 로더 | `feat: facts.py — facts 로더 (T-08)` | `load_facts` → `(dict[id, Fact], findings)`. `facts/` 있으면 그쪽만(사전순 병합), 없으면 `facts.yaml`. id 중복 error(먼저 읽은 쪽 유지), 파일 단위 `_project` 상속·항목이 덮어씀, 80건 초과 notice, 타입 위반 error·미지 필드 warn |
 | T-G1 | **1단계 게이트** — 과거 제안서 2건 임포트·승인·병합 | `chore: 과거 제안서 2건 임포트·승인 (T-G1)` (콘텐츠 리포지토리) | 블록 38건(thesis 16 / evidence 6 / strategy 16, 공용 2), `projects.yaml` 2건, `tags.yaml` 어휘 28개 확정. 숫자 코퍼스로 T-10 완료. 전 블록 `status: draft` — 본문 문구 검토가 남음. `tests/fixtures/`는 T-08에서 만든다 |
 | T-33 | `tags.py` 중복 제거 (T-04 개정) | `fix: tags.py — 정규화 후 중복 태그 제거 (T-33)` | `normalize_all`이 선언 순서를 유지하며 중복 제거. 미등록 카운트는 등장한 만큼 유지 |
 | T-32 | `cmd_import` 분할 단위 조정 (T-06 개정) | `fix: cmd_import — h2까지만 분할 (T-32)` | `SPLIT_DEPTH = 2`, `split_sections(text, depth)`. 재임포트 결과 tips-ad 38 → 16건, mvp-cogcare 71 → 18건 |
@@ -148,3 +148,4 @@ T-01 프로젝트 골격
 | 2026-08-20 | **T-G1 완료.** 블록 38건 승인·병합, `tags.yaml` 28개 어휘 귀납. 분할 기준은 "h2 본문이 비고 하위 절이 각 300자 이상이면 쪼갠다" — 12장(각 130~195자)처럼 잘면 부모 유지 | T-G1, T-32 |
 | 2026-08-20 | T-G1 승인 시 전 블록을 `status: draft`로 둠. 계층·태그·소속은 승인됐지만 본문에 "프레젠테이션의 도식은" 같은 원문 참조 문구가 남아 있어 그대로 제안서에 넣을 수 없다. `active` 승격은 본문 검토 뒤 | T-11, T-13 |
 | 2026-08-20 | `tests/fixtures/` 최소 리포지토리는 T-08에서 만든다. 실물 블록이 38건이라 그중 4건을 잘라 쓰면 된다 | T-08 |
+| 2026-08-20 | T-08 완료. `tests/fixtures/` 최소 리포지토리는 만들지 않음 — facts 테스트가 전부 인라인 YAML로 충분했다. 전체 리포지토리가 실제로 필요한 T-12·T-17에서 만든다 | T-12, T-17, devplan §6 |
