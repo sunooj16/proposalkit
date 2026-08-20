@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-07 `cmd_index`)*
+*(없음 — 다음: **T-G1 1단계 게이트**. 코드 아님 — 과거 제안서 2건이 있어야 진행 가능)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-07 | `cmd_index` — `INDEX.md` 생성 | `ppsk/commands/index.py` | 경로·layer·정규형 tags·summary 출력 | — |
 | T-G1 | **1단계 게이트** — 과거 제안서 2건 임포트, 승인/병합, `tags.yaml` 초안 확정, 숫자 클래스 코퍼스 수집 | 채워진 리포지토리, `tests/fixtures/` | 코드 아님. 이 결과로 T-10 정규식과 devplan §7 미확정 1건 확정 | T-10, devplan §7 |
 
 ### 2단계 — 조립 경로
@@ -98,6 +97,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-07 | `cmd_index` | `feat: cmd_index — INDEX.md 생성 (T-07)` | layer별 표(경로·정규형 tags·summary), draft 표시, 미등록 태그 경고 출력. 태그 정규화는 여기서(T-03 결정). 판정이 아니므로 항상 exit 0 |
 | T-06 | `cmd_import` + `numbers.py` 뼈대 | `feat: cmd_import — 문단 분할 스캐폴드 (T-06)` | 헤딩 기준 분할(없으면 빈 줄), `import/<name>/`에 `status: draft`·`layer: TODO` 블록 후보 + `facts.candidates.yaml` + `tags.candidates.txt`. devplan §3.4 정규식을 `numbers.py`로 선작성 |
 | T-05 | `scaffold.py` + `cmd_init` | `feat: scaffold.py + cmd_init — 리포지토리 골격 (T-05)` | `ppsk/templates/` 트리를 그대로 복사. 디렉터리 목록을 코드에 중복 선언하지 않음(빈 디렉터리는 `.gitkeep`). 기존 파일은 덮지 않아 재실행 안전. `docs/rules.md` + 한 줄 포인터 `CLAUDE.md`/`AGENTS.md`, 주석만 든 `facts.yaml`/`tags.yaml`, angle 템플릿 3종 |
 | T-04 | `tags.py` | `feat: tags.py — 통제 어휘 로더·alias 정규화 (T-04)` | `Tags` 데이터클래스(`normalize`/`normalize_all`/`unregistered_findings`) + `load_tags`. `난제` → `기술난제` 매칭, 대소문자·공백 무시. 미등록은 원문 유지 + `Counter` 누적. `_config.unregistered`로 warn/error 승격. `tags.yaml` 부재는 빈 어휘(오류 아님) |
@@ -123,3 +123,5 @@ T-01 프로젝트 골격
 | 2026-08-20 | T-06에서 `numbers.py`를 선작성. import의 fact 후보 추출에 주장성 수치 탐지가 필요한데, 임시 정규식을 커맨드에 심으면 T-10에서 두 벌이 된다. T-10은 "작성"이 아니라 "T-G1 코퍼스로 조정"으로 축소 | T-10, T-12 |
 | 2026-08-20 | devplan §7 미확정 — 문단 분할 단위를 **헤딩 우선, 헤딩 없으면 빈 줄** 로 잠정 결정. 실제 제안서 2건을 아직 못 봐서 T-G1에서 재확인 | T-06, T-G1, devplan §7 |
 | 2026-08-20 | 임포트 블록의 `layer`를 추측하지 않고 `TODO`(허용값 아님)로 남김. 계층 미판정 상태로 `core/`에 옮기면 `ppsk check`이 곧바로 error를 내게 — 조용히 틀린 계층이 박히는 것보다 낫다 | T-03,11,12 |
+| 2026-08-20 | T-07 완료. `ppsk index`는 미등록 태그를 출력하되 종료코드에 반영하지 않음 — 판정과 exit code는 `ppsk check`이 단독 소유 | T-11,17 |
+| 2026-08-20 | **1단계 코드 작업 전부 완료(T-02~T-07).** 다음은 T-G1 게이트 — 과거 제안서 2건 임포트가 있어야 T-10 정규식 조정과 devplan §7 분할 단위 확정이 가능 | T-G1, T-10 |
