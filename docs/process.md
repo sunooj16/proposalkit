@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-02 `model.py`)*
+*(없음 — 다음: T-03 `blocks.py`)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-02 | `model.py` — Block/Fact/Finding 데이터클래스 | `ppsk/model.py` | 타입만. 로직 없음 | T-03,04,08~14 |
 | T-03 | `blocks.py` — frontmatter 파싱 + 블록 스캔 + `sha()` | `ppsk/blocks.py`, `tests/test_blocks.py` | 필수 필드 누락 error / 미지 필드 warn, CRLF 정규화 후 해시 | T-05,06,07,11,20 |
 | T-04 | `tags.py` — 로더 + alias 정규화 | `ppsk/tags.py`, `tests/test_tags.py` | `난제` → `기술난제` 매칭, 미등록 카운트 | T-07,13,16,24 |
 | T-05 | `scaffold.py` + `cmd_init` | `ppsk/scaffold.py`, `ppsk/commands/init.py`, `templates/` | 빈 디렉터리에서 골격 + `CLAUDE.md`/`AGENTS.md` 포인터 생성 | T-06,15 |
@@ -103,6 +102,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-02 | `model.py` | `feat: model.py — Block/Fact/Finding (T-02)` | `Block`/`Fact`/`Finding` + `Layer`/`Status`/`Editable`/`Stability`/`Level` Literal 별칭. `Fact.derived`만 로직. 선택 필드는 기본값, 리스트는 `field(default_factory=list)` |
 | T-01 | 프로젝트 골격 | `chore: 프로젝트 골격 (T-01)` | `pyproject.toml`(PyYAML 1개), `ppsk/__main__.py` 디스패치, `.gitignore`. `ppsk --version`/`--help` 동작 확인 |
 
 ---
@@ -115,3 +115,4 @@ T-01 프로젝트 골격
 |---|---|---|
 | 2026-08-18 | 최초 작성 (devplan 기준) | — |
 | 2026-08-18 | T-01 완료. 커맨드 등록 방식 확정 — 각 모듈이 `add_parser(subparsers)`로 파서를 반환하고 `run(args)`가 종료코드를 반환. `__main__`은 디스패치만 | T-05~07, T-15~19, T-21, T-23 (커맨드 모듈 전부) |
+| 2026-08-20 | T-02 완료. 계층/상태 Literal을 `model.py`의 이름있는 별칭(`Layer` 등)으로 노출 — blocks/facts/check가 문자열 리터럴을 재선언하지 않게 | T-03,04,08~14 |
