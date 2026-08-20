@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-28 `blocks.py` 개정)*
+*(없음 — 다음: T-29 `scaffold`/`cmd_init` 개정)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-28 | `blocks.py` 개정 — `projects` 파싱 (알려진 선택 필드로 승격) | `ppsk/blocks.py`, `tests/test_blocks.py` | 문자열 1개도 목록으로 흡수. 미등록 id 판정은 여기가 아니라 check | T-31,16 |
 | T-29 | `scaffold`/`cmd_init` 개정 — `projects.yaml` 템플릿 + `docs/rules.md` 프로젝트 절 | `ppsk/templates/` | 빈 등록부 + 주석 예시. 기존 리포지토리에서 재실행하면 파일만 추가됨 | T-30 |
 | T-30 | `cmd_import` 개정 — `--project <id>` 로 후보에 소속 스탬프 | `ppsk/commands/import_.py` | 미지정 시 `projects: []` + 안내 1줄 | T-G1 |
 | T-31 | `cmd_index` 개정 — `--project` 필터 + projects 열 | `ppsk/commands/index.py` | 미등록 id 지정 시 exit 1 (오타가 조용한 빈 인덱스가 되지 않게) | — |
@@ -101,6 +100,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-28 | `blocks.py` 개정 (T-03 개정) | `feat: blocks.py — projects 필드 파싱 (T-28)` | 알려진 선택 필드로 승격(미지 필드 warn 대상에서 제외), 문자열 1개도 목록으로 흡수. 미등록 id 판정은 check |
 | T-27 | `model.py` 개정 (T-02 개정) | `feat: model.py — Block/Fact 에 projects 필드 (T-27)` | `Block.projects`/`Fact.projects`, 기본값 빈 목록 = 공용 |
 | T-26 | `projects.py` + `projects.yaml` 스키마 | `feat: projects.py — 프로젝트 등록부·소속 판정 (T-26)` | `selects(declared, project)` 순수 함수(미선언=공용, 미지정 수집=전부), `resolve`/`resolve_all`(alias·대소문자 흡수, 미등록은 `None`), `is_archived`/`active_ids`. 파일 부재는 빈 등록부 |
 | T-07 | `cmd_index` | `feat: cmd_index — INDEX.md 생성 (T-07)` | layer별 표(경로·정규형 tags·summary), draft 표시, 미등록 태그 경고 출력. 태그 정규화는 여기서(T-03 결정). 판정이 아니므로 항상 exit 0 → T-31로 개정 |

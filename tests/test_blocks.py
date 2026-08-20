@@ -158,3 +158,36 @@ def test_load_blocks_is_sorted_by_path(tmp_path):
     blocks, _ = load_blocks(tmp_path)
 
     assert [b.path.as_posix() for b in blocks] == ["core/a.md", "core/z.md", "evidence/m.md"]
+
+
+def test_projects_field_is_parsed(tmp_path):
+    path = write(tmp_path, "core/thesis/claim.md", GOOD.replace("tags: [기술난제, 개인화]", "tags: []\nprojects: [cogtrain, ncore]"))
+    block, findings = load_block(path, tmp_path)
+
+    assert findings == []
+    assert block.projects == ["cogtrain", "ncore"]
+
+
+def test_projects_accepts_single_string(tmp_path):
+    path = write(tmp_path, "core/thesis/claim.md", GOOD.replace("tags: [기술난제, 개인화]", "projects: cogtrain"))
+    block, findings = load_block(path, tmp_path)
+
+    assert findings == []
+    assert block.projects == ["cogtrain"]
+
+
+def test_missing_projects_means_shared(tmp_path):
+    """선언이 없으면 전 프로젝트 공용이다 — 회사 소개·팀이 그런 블록이다."""
+    block, findings = load_block(write(tmp_path, "core/identity/company.md", GOOD), tmp_path)
+
+    assert findings == []
+    assert block.projects == []
+
+
+def test_unregistered_project_is_not_judged_here(tmp_path):
+    """미등록 판정은 blocks 가 아니라 check 이 한다. 여기서는 원문을 그대로 싣는다."""
+    path = write(tmp_path, "core/thesis/claim.md", GOOD.replace("tags: [기술난제, 개인화]", "projects: [오타난프로젝트]"))
+    block, findings = load_block(path, tmp_path)
+
+    assert findings == []
+    assert block.projects == ["오타난프로젝트"]

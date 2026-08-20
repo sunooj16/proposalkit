@@ -20,7 +20,7 @@ BLOCK_DIRS = ("core", "evidence", "strategy")
 SKIP_NAMES = {"CHANGELOG.md", "README.md", "INDEX.md"}
 
 REQUIRED = ("id", "layer", "status", "editable", "summary")
-OPTIONAL = ("last_verified", "facts_used", "tags")
+OPTIONAL = ("last_verified", "facts_used", "tags", "projects")
 
 ENUMS = {
     "layer": ("identity", "thesis", "evidence", "strategy"),
@@ -107,12 +107,14 @@ def load_block(path, root):
         last_verified = None
 
     lists = {}
-    for key in ("facts_used", "tags"):
+    for key in ("facts_used", "tags", "projects"):
         value = meta.get(key) or []
+        if isinstance(value, str):
+            value = [value]  # `projects: cogtrain` 한 줄 표기도 받는다
         if not isinstance(value, list):
             bad(f"{key}: 목록이어야 한다")
             value = []
-        lists[key] = [str(item) for item in value]
+        lists[key] = [str(item).strip() for item in value]
 
     if any(f.level == "error" for f in findings):
         return None, findings
@@ -129,6 +131,7 @@ def load_block(path, root):
         last_verified=last_verified,
         facts_used=lists["facts_used"],
         tags=lists["tags"],
+        projects=lists["projects"],  # 빈 목록 = 공용. 미등록 id 판정은 check 이 한다
     )
     return block, findings
 
