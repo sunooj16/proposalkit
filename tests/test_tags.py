@@ -54,13 +54,8 @@ def test_matching_ignores_case_and_spacing(tmp_path):
 def test_unregistered_returns_input_and_counts(tmp_path):
     tags, _ = load_tags(write(tmp_path, VOCAB))
 
-    assert tags.normalize_all(["현장검증", "규제대응", "현장검증", "현장검증"]) == [
-        "현장검증",
-        "규제대응",
-        "현장검증",
-        "현장검증",
-    ]
-    assert tags.unregistered == {"현장검증": 3, "규제대응": 1}
+    assert tags.normalize_all(["현장검증", "규제대응", "현장검증", "현장검증"]) == ["현장검증", "규제대응"]
+    assert tags.unregistered == {"현장검증": 3, "규제대응": 1}  # 카운트는 등장한 만큼
 
 
 def test_unregistered_findings_sorted_by_count(tmp_path):
@@ -129,3 +124,25 @@ def test_broken_yaml_is_error(tmp_path):
 
     assert [f.rule for f in findings] == ["tags.malformed"]
     assert tags.canonical == {}
+
+
+def test_normalize_all_drops_duplicates_after_normalization(tmp_path):
+    """정규형과 alias 를 같이 단 블록이 실제로 있었다 (T-G1). 중복은 의미가 없다."""
+    tags, _ = load_tags(write(tmp_path, VOCAB))
+
+    assert tags.normalize_all(["기술난제", "난제", "성능목표"]) == ["기술난제", "성능목표"]
+    assert tags.unregistered == {}
+
+
+def test_normalize_all_keeps_declaration_order(tmp_path):
+    tags, _ = load_tags(write(tmp_path, VOCAB))
+
+    assert tags.normalize_all(["TAM", "난제", "KPI"]) == ["시장규모", "기술난제", "성능목표"]
+
+
+def test_duplicate_unregistered_tags_count_once_each_occurrence(tmp_path):
+    """중복 제거는 출력에서만 한다. 미등록 카운트는 등장한 만큼 세야 승격 판단이 선다."""
+    tags, _ = load_tags(write(tmp_path, VOCAB))
+
+    assert tags.normalize_all(["현장검증", "현장검증"]) == ["현장검증"]
+    assert tags.unregistered == {"현장검증": 2}

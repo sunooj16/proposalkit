@@ -101,6 +101,7 @@ T-01 프로젝트 골격
 | T-29 | `scaffold`/`cmd_init` 개정 (T-05 개정) | `feat: scaffold — projects.yaml 템플릿 + rules 프로젝트 절 (T-29)` | 빈 등록부 + 주석 예시. `docs/rules.md`에 프로젝트 절 추가. 기존 리포지토리에서 `ppsk init` 재실행 시 `projects.yaml`만 추가됨(실행 확인) |
 | T-28 | `blocks.py` 개정 (T-03 개정) | `feat: blocks.py — projects 필드 파싱 (T-28)` | 알려진 선택 필드로 승격(미지 필드 warn 대상에서 제외), 문자열 1개도 목록으로 흡수. 미등록 id 판정은 check |
 | T-27 | `model.py` 개정 (T-02 개정) | `feat: model.py — Block/Fact 에 projects 필드 (T-27)` | `Block.projects`/`Fact.projects`, 기본값 빈 목록 = 공용 |
+| T-33 | `tags.py` 중복 제거 (T-04 개정) | `fix: tags.py — 정규화 후 중복 태그 제거 (T-33)` | `normalize_all`이 선언 순서를 유지하며 중복 제거. 미등록 카운트는 등장한 만큼 유지 |
 | T-32 | `cmd_import` 분할 단위 조정 (T-06 개정) | `fix: cmd_import — h2까지만 분할 (T-32)` | `SPLIT_DEPTH = 2`, `split_sections(text, depth)`. 재임포트 결과 tips-ad 38 → 16건, mvp-cogcare 71 → 18건 |
 | T-10 | `numbers.py` 코퍼스 조정 | `fix: numbers.py — T-G1 코퍼스로 정규식 조정 (T-10)` | 만/억/조 배수+단위, 달러, 범위 표현, 근사 접두어 통합, 겹침 매치 병합, 쉼표 단독 매치 버그. 제외 추가: 연월일·일정 표기·각주 번호·연령·N차. 실제 문장 21건 `CORPUS` 고정 |
 | T-26 | `projects.py` + `projects.yaml` 스키마 | `feat: projects.py — 프로젝트 등록부·소속 판정 (T-26)` | `selects(declared, project)` 순수 함수(미선언=공용, 미지정 수집=전부), `resolve`/`resolve_all`(alias·대소문자 흡수, 미등록은 `None`), `is_archived`/`active_ids`. 파일 부재는 빈 등록부 |
@@ -143,3 +144,4 @@ T-01 프로젝트 골격
 | 2026-08-20 | T-10 완료. 코퍼스가 드러낸 구멍 5가지(배수 뒤 단위 누락, 달러 미지원, 근사 표현 중복 계상, 범위 앞쪽 유실, 쉼표 단독 매치). 접두어를 각 패턴에 흡수하고 겹침은 긴 매치만 남기는 방식으로 해결 | T-12 |
 | 2026-08-20 | devplan §7 미확정 **문단 분할 단위 확정 — h2까지만**. 실물에서 h1~h6 전부 자르니 부모 헤딩이 껍데기 블록(364바이트)이 되고 109건이 나옴. 개정은 T-32 | T-06, T-32, devplan §7 |
 | 2026-08-20 | T-32 완료. h2 분할로 재임포트 — 블록 후보 109건 → 34건. `depth` 를 인자로 열어둠(기본 2) — 문서마다 헤딩 관례가 달라 재임포트 시 조정 여지가 필요 | T-G1 |
+| 2026-08-20 | T-33. T-G1 승인 중 `[문제정의, 고객문제]`처럼 정규형과 alias를 같이 단 블록이 나와 인덱스에 `문제정의, 문제정의`가 출력됨. `normalize_all`에서 중복 제거 — 호출부마다 고치면 collect에서 또 샌다 | T-04, T-07, T-16 |

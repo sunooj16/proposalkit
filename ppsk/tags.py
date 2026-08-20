@@ -42,7 +42,19 @@ class Tags:
         return found
 
     def normalize_all(self, tags):
-        return [self.normalize(t) for t in tags]
+        """정규형 목록. 선언 순서를 유지하고 중복은 제거한다.
+
+        `[문제정의, 고객문제]` 처럼 정규형과 그 alias 를 같이 달면 정규화 후 같은
+        태그가 두 번 남는다. 중복 태그는 어떤 호출부에서도 의미가 없다.
+        """
+        seen, result = set(), []
+        for tag in tags:
+            normalized = self.normalize(tag)
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            result.append(normalized)
+        return result
 
     def unregistered_findings(self):
         """등장 횟수 내림차순. 두세 번 이상 나온 태그가 어휘 승격 후보다 (기획 7장)."""
