@@ -52,7 +52,21 @@ def build_parser():
     return parser
 
 
+def _force_utf8_output():
+    """Windows 콘솔 기본 코드페이지(cp949)는 em dash·화살표를 못 찍고 죽는다.
+
+    커맨드마다 문구를 검열하는 대신 출력 스트림을 여기서 한 번 바꾼다.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if getattr(stream, "encoding", "").lower() not in ("utf-8", "utf8"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (AttributeError, OSError):
+                pass  # 파이프·리다이렉트 등 재설정 불가한 스트림은 그대로 둔다
+
+
 def main(argv=None):
+    _force_utf8_output()
     parser = build_parser()
     args = parser.parse_args(argv)
 

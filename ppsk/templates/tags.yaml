@@ -1,0 +1,7 @@
+# 통제 어휘 + alias. 어휘는 설계하지 말고 임포트 결과에서 귀납한다.
+_config:
+  unregistered: warn          # warn | error — 어휘가 안정되면 error 로 승격
+
+# 기술난제:
+#   aliases: [기술적난제, 난제, technical-challenge]
+#   note: 해결이 어려운 기술적 문제 자체. 성능 목표와 구분할 것

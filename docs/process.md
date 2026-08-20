@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-05 `scaffold.py` + `cmd_init`)*
+*(없음 — 다음: T-06 `cmd_import`)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-05 | `scaffold.py` + `cmd_init` | `ppsk/scaffold.py`, `ppsk/commands/init.py`, `templates/` | 빈 디렉터리에서 골격 + `CLAUDE.md`/`AGENTS.md` 포인터 생성 | T-06,15 |
 | T-06 | `cmd_import` — 문단 분할 스캐폴드 | `ppsk/commands/import_.py` | `import/<name>/`에 `status: draft` 블록 후보 + fact/tag 후보 | T-10 (정규식 코퍼스) |
 | T-07 | `cmd_index` — `INDEX.md` 생성 | `ppsk/commands/index.py` | 경로·layer·정규형 tags·summary 출력 | — |
 | T-G1 | **1단계 게이트** — 과거 제안서 2건 임포트, 승인/병합, `tags.yaml` 초안 확정, 숫자 클래스 코퍼스 수집 | 채워진 리포지토리, `tests/fixtures/` | 코드 아님. 이 결과로 T-10 정규식과 devplan §7 미확정 1건 확정 | T-10, devplan §7 |
@@ -100,6 +99,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-05 | `scaffold.py` + `cmd_init` | `feat: scaffold.py + cmd_init — 리포지토리 골격 (T-05)` | `ppsk/templates/` 트리를 그대로 복사. 디렉터리 목록을 코드에 중복 선언하지 않음(빈 디렉터리는 `.gitkeep`). 기존 파일은 덮지 않아 재실행 안전. `docs/rules.md` + 한 줄 포인터 `CLAUDE.md`/`AGENTS.md`, 주석만 든 `facts.yaml`/`tags.yaml`, angle 템플릿 3종 |
 | T-04 | `tags.py` | `feat: tags.py — 통제 어휘 로더·alias 정규화 (T-04)` | `Tags` 데이터클래스(`normalize`/`normalize_all`/`unregistered_findings`) + `load_tags`. `난제` → `기술난제` 매칭, 대소문자·공백 무시. 미등록은 원문 유지 + `Counter` 누적. `_config.unregistered`로 warn/error 승격. `tags.yaml` 부재는 빈 어휘(오류 아님) |
 | T-03 | `blocks.py` | `feat: blocks.py — frontmatter 파싱·블록 스캔 (T-03)` | `parse_frontmatter`/`sha`/`load_block`/`load_blocks`. 해시는 본문만 + CRLF 정규화. 필수 필드·enum 위반 `block.malformed` error, 미지 필드 `block.unknown_field` warn. `load_blocks`는 `(blocks, findings)` 튜플 반환 — devplan §3.1 시그니처에서 변경. `tags` 정규화는 T-04 이후 |
 | T-02 | `model.py` | `feat: model.py — Block/Fact/Finding (T-02)` | `Block`/`Fact`/`Finding` + `Layer`/`Status`/`Editable`/`Stability`/`Level` Literal 별칭. `Fact.derived`만 로직. 선택 필드는 기본값, 리스트는 `field(default_factory=list)` |
@@ -119,3 +119,4 @@ T-01 프로젝트 골격
 | 2026-08-20 | T-03 완료. `load_blocks`가 `list[Block]`이 아니라 `(list[Block], list[Finding])`을 반환 — 필수 필드/미지 필드 판정 결과를 예외 대신 Finding으로 넘겨야 check.py가 한 번에 취합한다. `core/CHANGELOG.md` 등은 `SKIP_NAMES`로 스캔 제외 | T-05,06,07,11,20, devplan §3.1 |
 | 2026-08-20 | 블록 `tags` 정규형 치환은 `load_blocks`가 아니라 호출부(T-07 index, T-16 collect)에서 하기로. blocks.py가 tags.py에 의존하지 않게 | T-04,07,13,16 |
 | 2026-08-20 | T-04 완료. 미등록 카운트를 모듈 전역이 아니라 `Tags` 인스턴스에 담음 — 테스트·다중 리포지토리에서 상태가 새지 않게. 태그 매칭 키는 공백 제거 + casefold (`기술 난제`/`kpi` 흡수) | T-07,13,16,24 |
+| 2026-08-20 | T-05 완료. 골격 정의를 `ppsk/templates/` 파일 트리 자체로 둠 — 코드의 디렉터리 목록과 템플릿이 어긋날 여지를 없앰. Windows 콘솔 cp949 인코딩 크래시를 `__main__._force_utf8_output()`에서 일괄 처리(커맨드별 문구 검열 대신) | T-06,15, 커맨드 모듈 전부 |

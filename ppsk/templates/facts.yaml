@@ -1,0 +1,16 @@
+# 모든 수치의 단일 소유자. 본문에는 {{fact_id}} 로만 쓴다.
+#
+# pilot_n_2025:
+#   value: "참여자 42명"
+#   num: 42                 # 파생 계산에 쓰일 때만 필요
+#   source: "2025 파일럿 결과보고서 p.7"
+#   verified: 2026-06-01
+#   stability: volatile     # fixed | volatile
+#   recheck_days: 90
+#
+# 파생 fact는 expr 로 쓴다. verified/stability/recheck_days/source 는 입력에서 상속하므로
+# 직접 선언하면 오류다.
+#
+# sessions_per_user_2025:
+#   expr: "total_sessions_2025 / pilot_n_2025"
+#   format: "1인당 {v:.1f}회"
