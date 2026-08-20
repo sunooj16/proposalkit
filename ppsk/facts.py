@@ -1,11 +1,18 @@
-"""facts 로더 — `facts.yaml` 단일 파일과 `facts/` 디렉터리 양쪽.
+"""facts 로더와 파생 fact 평가.
 
-파생 fact 평가는 여기 없다 (T-09). 이 모듈은 읽고, 형식을 확인하고, 파일 단위
-기본 소속을 상속시키는 데까지만 한다.
+앞부분은 `facts.yaml` 단일 파일과 `facts/` 디렉터리를 읽어 `Fact` 로 만들고,
+뒷부분은 `expr` 를 가진 파생 fact 를 계산해 확인 상태를 상속시킨다.
+
+판정은 하지 않는다. 재확인 기한이 지났는지, 초안이 쓴 수치가 등록됐는지는
+check.py 가 본다.
 """
 
-from datetime import date
+import ast
+import operator
+from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
+from string import Formatter
 
 import yaml
 
@@ -168,3 +175,195 @@ def load_facts(root):
         )
 
     return facts, findings
+
+
+# ── 파생 fact 평가 (T-09) ────────────────────────────────────────────────
+#
+# `eval()` 에 문자열을 넘기지 않는다. 파싱한 뒤 허용 노드만 걸러 직접 계산한다.
+# facts.yaml 은 사람이 쓰는 파일이고 리포지토리는 에이전트가 쓰기 권한을 갖는다.
+
+ALLOWED_NODES = (
+    ast.Expression,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.Name,
+    ast.Load,
+    ast.Constant,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.USub,
+)
+
+OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+}
+
+# 파생 fact 는 이 값들을 입력에서 상속한다. 직접 선언하면 두 소유자가 생긴다 (기획 8장).
+FORBIDDEN_ON_DERIVED = ("verified", "stability", "recheck_days", "source")
+
+DEFAULT_FORMAT = "{v:g}"
+
+
+@dataclass
+class Derived:
+    """파생 fact 평가 결과. 값과 상속된 확인 상태."""
+
+    id: str
+    value: str
+    inputs: list  # 입력 fact id, 등장 순서
+    verified: date | None = None  # 입력들 중 가장 오래된 확인일
+    recheck_due: date | None = None  # 입력별 기한 중 가장 이른 것. fixed 입력은 제외
+    source: str = ""
+
+
+def _parse_expr(fact, findings):
+    """`ast.Expression | None`. 허용 노드만 통과한다."""
+
+    def bad(message, rule="derived.invalid_expr"):
+        findings.append(Finding(level="error", rule=rule, message=f"{fact.id}: {message}", location=FACTS_FILE))
+
+    try:
+        tree = ast.parse(fact.expr, mode="eval")
+    except SyntaxError as exc:
+        bad(f"expr 파싱 실패 — {exc.msg}")
+        return None
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ALLOWED_NODES):
+            bad(f"expr 에 허용되지 않은 문법: {type(node).__name__}")
+            return None
+        if isinstance(node, ast.Constant) and (isinstance(node.value, bool) or not isinstance(node.value, (int, float))):
+            bad(f"expr 의 상수는 숫자여야 한다: {node.value!r}")
+            return None
+    return tree
+
+
+def _compute(node, values):
+    if isinstance(node, ast.Expression):
+        return _compute(node.body, values)
+    if isinstance(node, ast.BinOp):
+        return OPERATORS[type(node.op)](_compute(node.left, values), _compute(node.right, values))
+    if isinstance(node, ast.UnaryOp):
+        return -_compute(node.operand, values)
+    if isinstance(node, ast.Name):
+        return values[node.id]
+    return node.value  # Constant
+
+
+def _apply_format(fact, value, findings):
+    """`str | None`. `{v}` 슬롯 하나에만 값을 넣는다."""
+
+    def bad(message):
+        findings.append(
+            Finding(level="error", rule="derived.invalid_format", message=f"{fact.id}: {message}", location=FACTS_FILE)
+        )
+
+    template = fact.format or DEFAULT_FORMAT
+    fields = [name for _, name, _, _ in Formatter().parse(template) if name is not None]
+
+    if len(fields) > 1:
+        bad(f"format 의 슬롯은 하나여야 한다 — {len(fields)}개 발견")
+        return None
+    if any(name != "v" for name in fields):
+        bad(f"format 의 슬롯은 {{v}} 여야 한다: {template!r}")
+        return None
+
+    try:
+        return template.format(v=value)
+    except (ValueError, KeyError, IndexError) as exc:
+        bad(f"format 적용 실패 — {exc}")
+        return None
+
+
+def _inherit(fact, inputs):
+    """입력들로부터 확인 상태를 상속한다."""
+    verified_dates = [f.verified for f in inputs if f.verified is not None]
+    verified = min(verified_dates) if verified_dates else None
+
+    # stability: fixed 는 기한 계산에서 빠진다. 특허번호·설립일은 영구 통과다.
+    dues = [
+        f.verified + timedelta(days=f.recheck_days)
+        for f in inputs
+        if f.stability != "fixed" and f.verified is not None and f.recheck_days is not None
+    ]
+
+    sources = [f.source for f in inputs if f.source]
+    source = " · ".join(sources)
+    return verified, (min(dues) if dues else None), (f"{source} · 계산: {fact.expr}" if source else f"계산: {fact.expr}")
+
+
+def eval_derived(fact, facts):
+    """`(Derived | None, list[Finding])`. 깊이 1 고정 — 파생이 파생을 참조하지 못한다."""
+    findings = []
+
+    def bad(message, rule):
+        findings.append(Finding(level="error", rule=rule, message=f"{fact.id}: {message}", location=FACTS_FILE))
+
+    for field_name in FORBIDDEN_ON_DERIVED:
+        if getattr(fact, field_name) is not None:
+            bad(f"파생 fact 는 {field_name} 를 선언할 수 없다 — 입력에서 상속한다", "derived.forbidden_field")
+
+    tree = _parse_expr(fact, findings)
+    if tree is None or findings:
+        return None, findings
+
+    names = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id not in names:
+            names.append(node.id)
+
+    inputs = []
+    for name in names:
+        source_fact = facts.get(name)
+        if source_fact is None:
+            bad(f"등록되지 않은 fact 를 참조한다: {name}", "derived.unknown_input")
+        elif source_fact.derived:
+            bad(f"파생 fact 를 참조한다: {name} — 파생은 깊이 1 까지다", "derived.nested")
+        elif source_fact.num is None:
+            bad(f"입력 {name} 에 num 이 없다 — 값에서 숫자를 추출하지 않는다", "derived.missing_num")
+        else:
+            inputs.append(source_fact)
+
+    if findings:
+        return None, findings
+
+    try:
+        value = _compute(tree, {f.id: f.num for f in inputs})
+    except ZeroDivisionError:
+        bad("0 으로 나눈다", "derived.invalid_expr")
+        return None, findings
+
+    formatted = _apply_format(fact, value, findings)
+    if formatted is None:
+        return None, findings
+
+    verified, recheck_due, source = _inherit(fact, inputs)
+    return (
+        Derived(
+            id=fact.id,
+            value=formatted,
+            inputs=[f.id for f in inputs],
+            verified=verified,
+            recheck_due=recheck_due,
+            source=source,
+        ),
+        findings,
+    )
+
+
+def eval_all_derived(facts):
+    """`(dict[id, Derived], list[Finding])`. 캐시 없음 — build 마다 다시 센다."""
+    results, findings = {}, []
+    for fact in facts.values():
+        if not fact.derived:
+            continue
+        derived, found = eval_derived(fact, facts)
+        findings += found
+        if derived is not None:
+            results[fact.id] = derived
+    return results, findings

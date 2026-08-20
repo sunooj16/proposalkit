@@ -218,10 +218,16 @@ CLAIM = [
 | `fact.unregistered` | error |
 | `fact.stale` | error |
 | `derived.nested` | error |
+| `derived.unknown_input` | error |
+| `derived.invalid_expr` | error |
+| `derived.invalid_format` | error |
 | `derived.missing_num` | error |
 | `derived.forbidden_field` | error |
 | `core.lock_mismatch` | error (+ deviation 자동 기록) |
 | `angle.no_match` | error |
+| `block.malformed` | error |
+| `facts.malformed` / `facts.duplicate_id` | error |
+| `tags.malformed` / `projects.malformed` | error |
 | `project.unregistered` | error |
 | `project.mismatch` | error |
 | `strict.not_verbatim` | error |
@@ -229,6 +235,7 @@ CLAIM = [
 | `block.stale` | warn |
 | `generated_from.mismatch` | warn |
 | `block.draft_used` | warn |
+| `block.unknown_field` / `facts.unknown_field` | warn |
 | `review.due` | notice |
 | `facts.count_threshold` | notice |
 | `project.unassigned` | notice (config로 승격) |
