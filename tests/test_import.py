@@ -113,3 +113,49 @@ def test_without_project_candidates_are_shared():
     for meta, _ in parsed.values():
         assert meta["projects"] == []
     assert "_project" not in facts
+
+
+NESTED = textwrap.dedent(
+    """\
+    # 제안서
+
+    도입부는 충분히 길어야 블록으로 선다. 이 문장이 그 역할을 한다.
+
+    ## 4. 솔루션
+
+    솔루션 개요를 두 줄 정도 적는다. 하위 절이 이어진다.
+
+    ### 4.1 아키텍처
+
+    아키텍처 설명이 여기 들어간다. 부모 본문에 남아야 한다.
+
+    ### 4.2 샘플링
+
+    샘플링 방식 설명이 여기 들어간다.
+
+    ## 5. 사업모델
+
+    사업모델 설명이 충분히 길게 들어간다.
+    """
+)
+
+
+def test_splits_only_down_to_h2():
+    """h3 이하까지 자르면 부모가 본문 두 줄짜리 껍데기 블록이 된다 (T-G1)."""
+    sections = split_sections(NESTED)
+
+    assert [title for title, _ in sections] == ["제안서", "4. 솔루션", "5. 사업모델"]
+
+
+def test_subsections_stay_in_parent_body():
+    body = dict(split_sections(NESTED))["4. 솔루션"]
+
+    assert "### 4.1 아키텍처" in body  # 헤딩 자체도 본문에 남아 구조가 보인다
+    assert "샘플링 방식 설명" in body
+    assert "사업모델 설명" not in body
+
+
+def test_split_depth_is_adjustable():
+    sections = split_sections(NESTED, depth=3)
+
+    assert [title for title, _ in sections] == ["제안서", "4. 솔루션", "4.1 아키텍처", "4.2 샘플링", "5. 사업모델"]

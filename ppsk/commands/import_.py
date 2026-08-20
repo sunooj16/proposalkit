@@ -15,6 +15,11 @@ from ..projects import load_projects
 # 헤딩이 있으면 헤딩 기준, 없으면 빈 줄 기준. devplan §7 미확정 항목 — T-G1 결과로 조정한다.
 HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*$", re.MULTILINE)
 
+# h2 까지만 자른다. T-G1 에서 h1~h6 전부로 잘라보니 하위 절이 전부 빠져나간
+# 부모 헤딩이 본문 두 줄짜리 껍데기 블록이 되고, 제안서 1건이 38개로 갈라졌다.
+# h3 이하는 부모 본문에 그대로 남긴다 (devplan §7 확정).
+SPLIT_DEPTH = 2
+
 MIN_CHARS = 40  # 이보다 짧은 조각은 블록 후보로 세우지 않는다
 
 
@@ -23,10 +28,10 @@ def slugify(text, fallback="block"):
     return slug[:60] or fallback
 
 
-def split_sections(text):
-    """`[(제목|None, 본문)]`. 헤딩 기준으로 자르고, 헤딩이 없으면 빈 줄 기준."""
+def split_sections(text, depth=SPLIT_DEPTH):
+    """`[(제목|None, 본문)]`. h1~h`depth` 헤딩 기준으로 자르고, 헤딩이 없으면 빈 줄 기준."""
     text = normalize_newlines(text)
-    matches = list(HEADING.finditer(text))
+    matches = [m for m in HEADING.finditer(text) if len(m.group(1)) <= depth]
 
     if not matches:
         chunks = [c.strip() for c in re.split(r"\n\s*\n", text)]
