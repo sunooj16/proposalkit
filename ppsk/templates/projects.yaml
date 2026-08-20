@@ -1,0 +1,13 @@
+# 프로젝트 등록부. 블록·fact 의 projects: 가 여기 등록된 id 만 쓸 수 있다.
+# 미등록 id 는 오타이므로 ppsk check 이 error 로 막는다.
+_config:
+  unassigned: notice          # 소속 미선언 블록의 등급. notice | warn | error
+
+# cogtrain:
+#   name: 인지훈련 개인화
+#   status: active            # active | archived — archived 는 수집에서 제외되지만 파일은 남는다
+#   aliases: [cog, 인지훈련]
+#
+# ncore:
+#   name: N-Core 플랫폼
+#   status: active

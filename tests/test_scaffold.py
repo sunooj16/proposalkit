@@ -60,3 +60,23 @@ def test_missing_files_are_restored_without_touching_others(tmp_path):
 
     assert [rel.as_posix() for rel in written] == ["docs/rules.md"]
     assert (tmp_path / "facts.yaml").read_text(encoding="utf-8") == "# 내가 쓴 것\n"
+
+
+def test_project_registry_is_created_and_loads_empty(tmp_path):
+    """등록부는 비어 있는 채로 시작한다 — 프로젝트도 임포트 결과에서 확정한다."""
+    from ppsk.projects import load_projects
+
+    scaffold(tmp_path)
+
+    assert (tmp_path / "projects.yaml").is_file()
+    projects, findings = load_projects(tmp_path)
+    assert findings == []
+    assert projects.entries == {} and projects.unassigned_level == "notice"
+
+
+def test_rules_document_covers_projects(tmp_path):
+    scaffold(tmp_path)
+    rules = (tmp_path / "docs/rules.md").read_text(encoding="utf-8")
+
+    assert "projects.yaml" in rules
+    assert "생략이 공용" in rules

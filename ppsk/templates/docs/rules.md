@@ -21,6 +21,21 @@
 `editable: strict` 블록의 본문은 **축자 그대로** 초안에 들어가야 한다. 다듬고 싶으면 블록을
 고쳐라 — 초안에서 고치면 `ppsk check` 이 막는다.
 
+## 프로젝트
+
+사업이 여럿이면 블록과 fact 가 어느 사업에 속하는지 선언한다.
+
+```yaml
+projects: [cogtrain]      # 이 프로젝트 전용
+# 생략                     → 전 프로젝트 공용
+```
+
+- **생략이 공용이다.** 회사 소개·팀·보유자산처럼 실제로 공용인 것은 그냥 두면 된다.
+- 쓸 수 있는 id 는 `projects.yaml` 에 등록된 것뿐이다. 미등록 id 는 오타이므로 `ppsk check` 이 막는다.
+- 프로젝트는 태그가 아니다. 태그는 순위를 매기고, 프로젝트는 차단한다. A 사업의 실적이
+  B 사업 제안서에 들어가면 안 되므로 `ppsk collect` 는 정렬 이전에 프로젝트로 먼저 거른다.
+- 제안서는 `angle.md` 의 `project:` 로 소속을 정한다. 생략하면 회사 단위(IR 등)로 보고 전부를 후보로 삼는다.
+
 ## 수치
 
 - 주장성 수치는 전부 `facts.yaml` 에 등록하고 본문에는 `{{fact_id}}` 로 쓴다.
@@ -31,7 +46,8 @@
 ## 작업 흐름
 
 ```
-ppsk new <slug> --type rnd     공고문을 brief.md 에 붙여넣기
+ppsk new <slug> --type rnd --project <id>
+                               공고문을 brief.md 에 붙여넣기
                                angle.md 확정                    ← 사람의 판단 ①
 ppsk collect <slug>            선별된 블록만 출력 → 그것만 읽고 초안 작성
 ppsk check <slug>              error 가 남아 있으면 진행 불가   ← 사람의 판단 ②
