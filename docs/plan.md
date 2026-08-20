@@ -37,7 +37,7 @@
 
 ---
 
-## 2. 데이터 분류 — 두 개의 축
+## 2. 데이터 분류 — 세 개의 축
 
 ### 축 1: 계층 (내용이 무엇인가)
 
@@ -69,6 +69,25 @@ v1의 4등급(`verbatim` / `rephrase` / `select` / `generate`)에서 축소했�
 `strict`만 남긴 대신 그것은 **실제로 검사한다.** 스키마 필드는 검증되거나, 검증되지 않는다면 검증되지 않는다고 명시되거나 둘 중 하나다.
 
 두 축이 모두 필요한 이유는 그대로다. Identity 계층 안에도 재작성 가능한 서술("훈련 소재를 개인화하는 엔진")과 손대면 안 되는 문구(법인 정식 명칭, 인증 표기)가 섞여 있다.
+
+---
+
+### 축 3: 프로젝트 (어느 사업에 속하는가)
+
+회사에 프로젝트가 여럿이면 같은 리포지토리 안에 서로 무관한 주장과 수치가 섞인다. 계층이나 태그로는 이것을 가를 수 없다 — **계층은 "무엇인가", 태그는 "얼마나 관련 있는가", 프로젝트는 "여기에 들어가도 되는가"** 다. 앞의 둘은 정렬이고 이것은 차단이다.
+
+```yaml
+projects: [cogtrain]      # 이 프로젝트 전용
+# projects 생략               → 전 프로젝트 공용
+```
+
+- **생략이 공용이다.** 회사 소개·팀·보유자산처럼 실제로 공용인 블록이 다수이므로, 공용을 기본값으로 두고 전용만 명시한다.
+- 프로젝트 어휘는 `projects.yaml`로 통제한다. **미등록 프로젝트 id는 처음부터 실패다** — 태그와 달리 오타가 곧 조용한 빈 결과이기 때문이다.
+- 필터링은 정렬보다 먼저 일어난다. 다른 프로젝트 전용 블록은 점수가 아무리 높아도 후보에 들어오지 않는다.
+
+프로젝트를 태그로 표현하지 않는 이유가 여기 있다. 태그는 가중치로 순위를 매기는 부드러운 장치이고, 프로젝트는 A 사업의 실적이 B 사업 제안서에 새어 들어가는 것을 막는 단단한 장치다. 같은 필드에 두 성질을 섞으면 결국 둘 다 흐려진다.
+
+리포지토리를 프로젝트별로 나누지 않는 이유는 기획 전체의 전제와 같다. 회사 소개와 팀 구성은 모든 프로젝트에서 동일하고, 복제하면 반드시 어긋난다.
 
 ---
 
@@ -112,6 +131,7 @@ proposalkit/
 ├── INDEX.md                   # 자동 생성 — 전체 블록 summary
 ├── facts.yaml                 # 모든 수치의 단일 소유자 (분할 시 facts/*.yaml)
 ├── tags.yaml                  # 통제 어휘 + alias
+├── projects.yaml              # 프로젝트 등록부 (id, 이름, 상태)
 ├── core.lock                  # 자동 생성 — core/ 파일별 해시
 ├── docs/
 │   └── rules.md               # 규약 원본 (하나만 유지)
@@ -167,9 +187,28 @@ editable: free                 # strict | free
 last_verified: 2026-07-10
 facts_used: [patent_personalization, pilot_n_2025]
 tags: [기술난제, 개인화, 인지훈련]     # tags.yaml의 정규형
+projects: [cogtrain]           # 생략하면 전 프로젝트 공용 (2장 축 3)
 summary: 기존 개인화는 난이도 조절에 머물러 있고 우리는 훈련 소재를 개인화한다
 ---
 ```
+
+`projects.yaml`:
+
+```yaml
+_config:
+  unassigned: notice          # 소속 미선언 블록의 등급. notice | warn | error
+
+cogtrain:
+  name: 인지훈련 개인화
+  status: active              # active | archived
+  aliases: [cog, 인지훈련]
+
+ncore:
+  name: N-Core 플랫폼
+  status: active
+```
+
+`archived` 프로젝트의 블록은 수집에서 제외되지만 파일은 남는다 — 지우면 이력이 사라지고, 남겨두기만 하면 매번 후보에 낀다.
 
 **제거된 필드 (v1 대비)**
 
@@ -300,6 +339,17 @@ facts/ 디렉터리가 존재하면  → facts/*.yaml 전부 병합해 로드
 없으면                     → facts.yaml 단일 파일 로드
 ```
 
+fact도 프로젝트에 속한다. 파일 단위로 기본 소속을 선언하면 항목마다 반복하지 않아도 된다.
+
+```yaml
+# facts/cogtrain.yaml
+_project: cogtrain            # 이 파일의 모든 fact 기본 소속
+
+pilot_n_2025:
+  value: "참여자 42명"
+  ...
+```
+
 fact id는 전역 유일이므로 분할해도 `{{fact_id}}` 참조 문법은 바뀌지 않는다. 즉 마이그레이션은 **파일 이동 한 번**이며 본문 수정이 없다. `ppsk check`은 항목 수가 80건을 넘으면 분할 검토 알림을 한 줄 출력한다(실패 아님).
 
 **결정을 미룰 때는 마이그레이션 비용을 먼저 0으로 만든다.** 그래야 미루는 것이 부채가 아니라 판단 유예가 된다.
@@ -322,6 +372,7 @@ fact id는 전역 유일이므로 분할해도 `{{fact_id}}` 참조 문법은 �
 <!-- proposals/2026-08-tips-rnd/angle.md -->
 ---
 proposal_type: rnd
+project: cogtrain                 # 이 제안서가 속한 프로젝트. 생략하면 회사 단위(IR 등)
 extends: templates/angles/rnd.md
 generated_from:                   # ppsk collect가 기록
   - core/thesis/existing-limitation.md@8c1e04b
@@ -506,6 +557,8 @@ ppsk review --close    # 검토 완료 기록 → CHANGELOG, 처리된 deviation
 | 파생 fact가 `verified`/`stability`/`recheck_days`/`source` 선언 | 실패 |
 | `core.lock` 해시 불일치 | 실패 + `deviations.md` 자동 기록 |
 | `angle.md`의 경로·태그가 어떤 블록과도 매칭되지 않음 | 실패 |
+| 미등록 프로젝트 id 참조 (블록·fact·`angle.md`) | 실패 |
+| 다른 프로젝트 전용 블록·fact를 초안에서 사용 | 실패 |
 | `editable: strict` 블록 본문이 초안에 축자 등장하지 않음 | 실패 |
 | `ppsk build` 시 인라인 마커 잔존 | 변환 거부 |
 | 미등록 태그 사용 (매칭은 성공) | 경고 (`unregistered: error`로 승격 가능) |
@@ -514,6 +567,7 @@ ppsk review --close    # 검토 완료 기록 → CHANGELOG, 처리된 deviation
 | `status: draft` 블록 사용 | 경고 |
 | deviation 임계 도달 또는 검토 백스톱 경과 | 알림 |
 | `facts` 항목 수 80건 초과 | 알림 |
+| 소속 미선언 블록·fact (공용으로 취급) | 알림 (`unassigned: error`로 승격 가능) |
 | 면제 마커 사용 | 리포트 |
 
 검증기는 **LLM 호출 없이 결정론적으로** 동작해야 한다. 검증까지 LLM에 맡기면 초안을 쓴 것과 같은 판단이 같은 실수를 통과시킨다.

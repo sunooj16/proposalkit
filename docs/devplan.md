@@ -28,6 +28,7 @@ ppsk/
 ├── model.py             # Block, Fact, Finding 데이터클래스
 ├── facts.py             # facts.yaml / facts/ 로더, 파생 fact 평가
 ├── tags.py              # tags.yaml 로더, alias 정규화
+├── projects.py          # projects.yaml 로더, 소속 판정 (하드 필터)
 ├── blocks.py            # frontmatter 파싱, core/ evidence/ strategy/ 스캔
 ├── numbers.py           # 주장성 수치 탐지 정규식
 ├── lock.py              # core.lock 생성·대조, deviations 기록
@@ -57,6 +58,7 @@ class Block:
     last_verified: date | None
     facts_used: list[str]
     tags: list[str]         # 정규형으로 치환된 상태
+    projects: list[str]     # 빈 목록 = 전 프로젝트 공용
     summary: str
     body: str
     sha: str                # sha256(정규화된 body), core.lock·generated_from 공용
@@ -72,6 +74,7 @@ class Fact:
     recheck_days: int | None
     expr: str | None        # 파생 fact
     format: str | None
+    projects: list[str]     # 빈 목록 = 공용. facts 파일의 _project 를 상속
 
     @property
     def derived(self) -> bool:
@@ -130,6 +133,29 @@ load_facts(root):
 - `load_tags(root)` → `{정규형: [alias...]}` + `_config.unregistered`
 - `normalize(tag)` → alias 역인덱스 조회. 없으면 원문 그대로 반환하고 미등록 카운트를 올린다.
 - 미등록 태그의 등급은 `_config.unregistered` 값을 따른다. 기본 `warn`.
+
+### 3.3.1 projects.py
+
+```
+load_projects(root) -> (Projects, findings)
+    projects.yaml 없음 → 빈 등록부. 전부 공용이므로 필터가 항상 통과한다 (오류 아님)
+```
+
+- `Projects.resolve(name)` → 등록된 id. alias 도 흡수한다. 미등록이면 `None`.
+- `Projects.selects(declared, project)` → 이 항목이 해당 프로젝트에서 보이는가.
+
+```python
+def selects(declared, project):
+    if not declared:      # 소속 미선언 = 공용
+        return True
+    if project is None:   # 프로젝트를 특정하지 않은 수집 = 전부
+        return True
+    return project in declared
+```
+
+**필터는 정렬보다 먼저 돈다.** `collect` 는 후보 목록을 만들 때 `selects` 로 거르고, 그 뒤에 태그 가중치로 정렬한다. 순서를 바꾸면 다른 프로젝트 블록이 상위에 올라와 사람이 그것을 지우는 작업이 생긴다.
+
+`core.lock` 은 프로젝트와 무관하다. 잠금 대상은 경로와 해시이며 소속이 바뀐다고 본문이 바뀌지는 않는다.
 
 ### 3.4 numbers.py — 주장성 수치 탐지
 
@@ -196,6 +222,8 @@ CLAIM = [
 | `derived.forbidden_field` | error |
 | `core.lock_mismatch` | error (+ deviation 자동 기록) |
 | `angle.no_match` | error |
+| `project.unregistered` | error |
+| `project.mismatch` | error |
 | `strict.not_verbatim` | error |
 | `tag.unregistered` | warn (config로 error 승격) |
 | `block.stale` | warn |
@@ -203,6 +231,7 @@ CLAIM = [
 | `block.draft_used` | warn |
 | `review.due` | notice |
 | `facts.count_threshold` | notice |
+| `project.unassigned` | notice (config로 승격) |
 | `exempt.usage` | report |
 
 `strict.not_verbatim` 검사: 블록 본문과 초안 양쪽에 공백 정규화(`re.sub(r"\s+", " ", s).strip()`)를 적용한 뒤 부분 문자열 포함으로 판정한다. 마크다운 구조는 건드리지 않는다.
@@ -227,10 +256,10 @@ FRESHNESS = {"identity": None, "thesis": 180, "evidence": 90, "strategy": 180}
 | 커맨드 | 입력 | 출력 | exit |
 |---|---|---|---|
 | `ppsk init` | 없음 | 디렉터리 골격 + `CLAUDE.md`/`AGENTS.md` 포인터 + 빈 `facts.yaml`/`tags.yaml` | 0 |
-| `ppsk import <file>` | 원본 문서 | `import/<name>/`에 블록 후보 `.md`(전부 `status: draft`) + `facts.candidates.yaml` + `tags.candidates.txt` | 0 |
-| `ppsk index` | — | `INDEX.md` (경로·layer·정규형 tags·summary) | 0 |
-| `ppsk new <slug> --type` | 템플릿 | `proposals/<날짜>-<slug>/` 5파일, `angle.md`가 `templates/angles/<type>.md` 상속 | 0 |
-| `ppsk collect <slug>` | `angle.md` | 선별 블록을 stdout으로 연결 출력 + `angle.md`의 `generated_from` 갱신 | 매칭 0건이면 1 |
+| `ppsk import <file> [--project <id>]` | 원본 문서 | `import/<name>/`에 블록 후보 `.md`(전부 `status: draft`) + `facts.candidates.yaml` + `tags.candidates.txt` | 0 |
+| `ppsk index [--project <id>]` | — | `INDEX.md` (경로·layer·정규형 tags·projects·summary) | 0 |
+| `ppsk new <slug> --type [--project <id>]` | 템플릿 | `proposals/<날짜>-<slug>/` 5파일, `angle.md`가 `templates/angles/<type>.md` 상속 | 0 |
+| `ppsk collect <slug>` | `angle.md` | `angle.md`의 `project` 로 먼저 거른 뒤 선별 블록을 stdout 연결 출력 + `generated_from` 갱신 | 매칭 0건이면 1 |
 | `ppsk check <slug>` | 전체 | 콘솔 요약 + `report.md` | error 있으면 1 |
 | `ppsk verify <fact-id> [--note]` | — | `facts.yaml`의 `verified`를 오늘로 갱신 | 파생 fact면 1 |
 | `ppsk build <slug> [--preview]` | `draft.md` | `final.md` | check 실패 또는 마커 잔존 시 1 |
@@ -238,6 +267,8 @@ FRESHNESS = {"identity": None, "thesis": 180, "evidence": 90, "strategy": 180}
 | `ppsk review [--close]` | `proposals/**/deviations.md` | core 블록별 그룹 출력 / `--close`는 `closed` 표시 + CHANGELOG 기록 | 0 |
 
 **`ppsk import`는 분해하지 않는다.** 원본을 문단 단위로 잘라 스캐폴드만 만들고, 계층 판정과 병합은 에이전트가 한다(기획 9장 역할 분담). `import/`는 승인 전 격리 구역이며, 사람이 승인한 파일만 `core/`·`evidence/`로 옮긴다.
+
+**`ppsk collect` 필터:** `angle.md` 의 `project` 와 각 블록의 `projects` 를 `selects` 로 대조해 후보를 먼저 줄인다. `project` 가 없는 제안서(회사 단위 IR 등)는 전부를 후보로 본다. 필터 결과가 0건이면 정렬 이전에 실패다.
 
 **`ppsk collect` 정렬:** 태그 가중치 `강=3`, `배경=1`. 블록 점수 = 매칭 태그 가중치 합. 동점은 경로 사전순(출력이 재현 가능해야 한다). 고정 포함은 점수와 무관하게 선두, 제외는 점수와 무관하게 배제.
 
@@ -292,6 +323,7 @@ FRESHNESS = {"identity": None, "thesis": 180, "evidence": 90, "strategy": 180}
 
 ## 7. 미확정 — 구현 중 결정
 
+- **프로젝트별 태그 어휘 분리** — 지금은 `tags.yaml` 하나를 전 프로젝트가 공유한다. 어휘가 프로젝트마다 갈라지는 것이 실제로 관찰된 뒤에 나눈다.
 - **`ppsk import`의 문단 분할 단위** — 빈 줄 기준 / 헤딩 기준. 실제 과거 제안서 2건을 보고 정한다.
 - **`num` 없는 fact의 파생 참조** — 지금은 error. `"참여자 42명"`에서 42를 자동 추출하는 것은 조용히 틀릴 위험이 커서 하지 않는다.
 - **`generated_from` 해시 길이** — 저장은 전체, 표시는 7자.
