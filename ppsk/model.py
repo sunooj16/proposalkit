@@ -27,6 +27,7 @@ class Block:
     last_verified: date | None = None
     facts_used: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)  # 정규형으로 치환된 상태
+    projects: list[str] = field(default_factory=list)  # 빈 목록 = 전 프로젝트 공용
 
 
 @dataclass
@@ -42,6 +43,7 @@ class Fact:
     recheck_days: int | None = None
     expr: str | None = None  # 파생 fact
     format: str | None = None
+    projects: list[str] = field(default_factory=list)  # 빈 목록 = 공용. facts 파일의 _project 를 상속
 
     @property
     def derived(self) -> bool:
