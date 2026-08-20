@@ -4,6 +4,7 @@ import textwrap
 
 from ppsk.commands.index import render
 from ppsk.blocks import load_blocks
+from ppsk.projects import load_projects
 from ppsk.tags import load_tags
 
 BLOCK = textwrap.dedent(
@@ -14,6 +15,7 @@ BLOCK = textwrap.dedent(
     status: {status}
     editable: free
     tags: [{tags}]
+    projects: [{projects}]
     summary: {summary}
     ---
     본문이다.
@@ -21,20 +23,26 @@ BLOCK = textwrap.dedent(
 )
 
 
-def build(tmp_path, blocks, vocabulary=None):
+REGISTRY = "cogtrain:\n  name: 인지훈련 개인화\nncore:\n  name: N-Core 플랫폼\n"
+
+
+def build(tmp_path, blocks, vocabulary=None, project=None, registry=None):
     for rel, fields in blocks.items():
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(BLOCK.format(**fields), encoding="utf-8", newline="\n")
     if vocabulary is not None:
         (tmp_path / "tags.yaml").write_text(vocabulary, encoding="utf-8", newline="\n")
+    if registry is not None:
+        (tmp_path / "projects.yaml").write_text(registry, encoding="utf-8", newline="\n")
     loaded, _ = load_blocks(tmp_path)
     tags, _ = load_tags(tmp_path)
-    return render(loaded, tags)
+    projects, _ = load_projects(tmp_path)
+    return render(loaded, tags, project, projects)
 
 
 def fields(**kwargs):
-    base = dict(id="x", layer="thesis", status="active", tags="", summary="요약")
+    base = dict(id="x", layer="thesis", status="active", tags="", projects="", summary="요약")
     base.update(kwargs)
     return base
 
@@ -99,7 +107,7 @@ def test_pipe_in_summary_does_not_break_table(tmp_path):
 
     row = [l for l in text.splitlines() if l.startswith("| `evidence")][0]
     assert r"A \| B" in row
-    assert len(row.split(" | ")) == 3  # 경로 | 태그 | 요약
+    assert len(row.split(" | ")) == 4  # 경로 | 프로젝트 | 태그 | 요약
 
 
 def test_marked_generated_and_stable_across_runs(tmp_path):
@@ -116,3 +124,49 @@ def test_empty_repository_gives_usable_index(tmp_path):
     text = build(tmp_path, {})
 
     assert "ppsk import" in text
+
+
+def test_project_filter_keeps_shared_blocks(tmp_path):
+    """공용 블록은 어느 프로젝트 인덱스에도 실린다 — 회사 소개가 그런 블록이다."""
+    text = build(
+        tmp_path,
+        {
+            "core/identity/company.md": fields(id="company", layer="identity"),
+            "evidence/cog.md": fields(id="cog", layer="evidence", projects="cogtrain"),
+            "evidence/ncore.md": fields(id="ncore", layer="evidence", projects="ncore"),
+        },
+        project="cogtrain",
+        registry=REGISTRY,
+    )
+
+    assert "core/identity/company.md" in text
+    assert "evidence/cog.md" in text
+    assert "evidence/ncore.md" not in text  # 차단 — 다른 사업의 근거가 새면 안 된다
+
+
+def test_without_project_everything_is_listed(tmp_path):
+    text = build(
+        tmp_path,
+        {
+            "evidence/cog.md": fields(id="cog", layer="evidence", projects="cogtrain"),
+            "evidence/ncore.md": fields(id="ncore", layer="evidence", projects="ncore"),
+        },
+        registry=REGISTRY,
+    )
+
+    assert "evidence/cog.md" in text and "evidence/ncore.md" in text
+
+
+def test_project_column_shows_owner_or_shared(tmp_path):
+    text = build(
+        tmp_path,
+        {
+            "core/identity/company.md": fields(id="company", layer="identity"),
+            "evidence/cog.md": fields(id="cog", layer="evidence", projects="cogtrain"),
+        },
+        registry=REGISTRY,
+    )
+
+    rows = {l.split("|")[1].strip(): l.split("|")[2].strip() for l in text.splitlines() if l.startswith("| `")}
+    assert rows["`core/identity/company.md`"] == "공용"
+    assert rows["`evidence/cog.md`"] == "cogtrain"
