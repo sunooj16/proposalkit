@@ -1,8 +1,8 @@
 """주장성 수치 탐지 — 기획 6장 분류표의 코드화.
 
-**이 정규식들은 가설이다.** 1단계 임포트 결과로 조정하고, 조정할 때마다
-`tests/test_numbers.py`에 실제 문장을 케이스로 추가한다 (T-10). 그 테스트가
-곧 숫자 클래스 정의의 실체가 된다.
+정규식은 가설로 출발했고, T-G1 임포트 코퍼스(과거 제안서 2건)로 한 차례
+조정했다. 앞으로도 조정할 때마다 `tests/test_numbers.py`에 **실제 문장**을
+케이스로 추가한다. 그 테스트가 곧 숫자 클래스 정의의 실체다.
 """
 
 import re
@@ -15,26 +15,40 @@ EXCLUDE = [
     re.compile(p, flags)
     for p, flags in [
         (r"\d{4}-\d{2}-\d{2}", 0),  # 날짜
-        (r"제?\s*\d+\s*(장|절|항|조)", 0),  # 순번·구조
+        (r"\d{4}\s*년\s*\d{1,2}\s*월(\s*\d{1,2}\s*일)?", 0),
+        (r"\d{2,4}\.\d{1,2}\.(\d{1,2}\.?)?", 0),  # 26.09.30. 형태 일정
+        (r"제?\s*\d+\s*(장|절|항)", 0),  # 순번·구조
+        # `조` 는 `제 3조`(순번) 와 `27조`(금액) 가 충돌한다. 순번은 `제` 를 요구한다.
+        (r"제\s*\d+\s*조", 0),
         (r"(표|그림|그래프)\s*\d+", 0),
         (r"^\s*\d+\.\s", re.MULTILINE),  # 목록 번호
-        (r"\d+\s*(개월|주|일차|차년도|년차)", 0),  # 기간·연차
+        (r"\[\d+(,\s*\d+)*\]", 0),  # 참고문헌 각주 번호 [12], [11, 12]
+        (r"\d+\s*(개월|주|일차|차년도|년차|주차|분|초|시간)", 0),  # 기간
+        (r"\d+\s*(세|대)\b", 0),  # 연령
         (r"TRL\s*\d+", 0),  # 단계·등급
         (r"\d+\s*단계", 0),
-        (r"\d+\s*가지", 0),  # 목록 개수
+        (r"\d+\s*(가지|축|부)", 0),  # 목록 개수·구성
+        (r"\d+\s*차\b", 0),  # 1차, 2차 시도
     ]
 ]
+
+# 수 하나 — 자리구분 쉼표, 소수점, 만/억/조 배수까지. 쉼표로 시작하지 않는다.
+_NUM = r"\d[\d,]*(?:\.\d+)?\s*(?:만|억|조)?"
+# 범위 표현은 하나로 묶는다. `25만~30만 원` 을 뒤쪽만 잡으면 앞의 값이 검증을 빠져나간다.
+_RANGE = rf"{_NUM}(?:\s*[~∼〜–—-]\s*{_NUM})?"
+# 근사 표현도 대상이다. 접두어를 따로 두면 같은 수치가 두 번 잡힌다.
+_ABOUT = r"(?:약|최대|최소|평균|연간|연|총)?\s*"
 
 CLAIM = [
     re.compile(p)
     for p in [
-        r"[\d,]+(\.\d+)?\s*(억|조|만)?\s*원",  # 금액
-        r"\$[\d,]+(\.\d+)?\s*[KMB]?",
-        r"[\d,]+\s*(명|건|개\s*기관|개사|곳|회|세션)",  # 규모·실적
-        r"\d+(\.\d+)?\s*(%|%p|배)",  # 비율·배수
+        rf"{_ABOUT}{_RANGE}\s*(?:원|달러|USD|유로|엔)",  # 금액
+        rf"\$\s*{_RANGE}\s*[KMB]?",
+        rf"{_ABOUT}{_RANGE}\s*(?:명|건|곳|회|종|개사|개\s*기관|개\s*국|개|기관|세션|례|편)",  # 규모·실적
+        rf"{_ABOUT}{_RANGE}\s*(?:%|%p|배|퍼센트)",  # 비율·배수
         r"\d{2}-\d{4}-\d{7}",  # 등록번호
-        r"약\s*[\d,]+(\.\d+)?",  # 근사 표현도 대상
-        r"[\d,]+\s*(원대|명대|건대)",  # 범위 표현
+        rf"{_ABOUT}\d[\d,]*(?:\.\d+)?\s*(?:억|조)",  # 단위 없는 억·조는 금액이다 (긴 매치가 우선하므로 `27조 원` 은 위에서 잡힌다)
+        rf"{_RANGE}\s*(?:원대|명대|건대)",  # 범위 표현
     ]
 ]
 
@@ -61,14 +75,19 @@ def find_claims(text):
     hits = []
     for pattern in CLAIM:
         for match in pattern.finditer(scanned):
-            line_no = scanned.count("\n", 0, match.start()) + 1
-            hits.append((line_no, match.start(), match.group(0).strip()))
+            matched = match.group(0).strip()
+            if not matched or not any(ch.isdigit() for ch in matched):
+                continue
+            start = match.start() + (len(match.group(0)) - len(match.group(0).lstrip()))
+            hits.append((start, start + len(matched), matched))
 
-    # 같은 위치를 두 패턴이 잡을 수 있다. 위치 기준으로 정렬·중복 제거.
-    seen, result = set(), []
-    for line_no, start, matched in sorted(hits):
-        if start in seen:
+    # 겹치는 매치는 긴 쪽만 남긴다. `약 3,400억 원` 이 `3,400억 원` 과 함께 잡히면
+    # 같은 수치가 두 건으로 세어지고 리포트가 부풀려진다.
+    result = []
+    last_end = -1
+    for start, end, matched in sorted(hits, key=lambda hit: (hit[0], -hit[1])):
+        if start < last_end:
             continue
-        seen.add(start)
-        result.append((line_no, matched))
+        last_end = end
+        result.append((scanned.count("\n", 0, start) + 1, matched))
     return result

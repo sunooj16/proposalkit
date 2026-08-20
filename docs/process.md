@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: **T-G1 1단계 게이트**. 코드 아님 — 과거 제안서 2건이 있어야 진행 가능)*
+*(T-G1 게이트 진행 중 — 임포트 완료, 승인·병합 대기. 코드 측 후속: T-32 분할 단위 조정)*
 
 ---
 
@@ -60,7 +60,8 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-G1 | **1단계 게이트** — 과거 제안서 2건 임포트, 승인/병합, `tags.yaml`·`projects.yaml` 초안 확정, 숫자 클래스 코퍼스 수집 | 채워진 리포지토리, `tests/fixtures/` | 코드 아님. 이 결과로 T-10 정규식과 devplan §7 미확정 항목 확정. 프로젝트 등록부도 여기서 실물로 확정 | T-10, T-26, devplan §7 |
+| T-32 | `cmd_import` 분할 단위 조정 (T-06 개정) | `ppsk/commands/import_.py`, `tests/test_import.py` | h1~h2에서만 자르고 h3 이하는 부모 본문에 포함. tips-ad 38건 → 14건 수준 | T-G1 |
+| T-G1 | **1단계 게이트** — 임포트 완료(블록 후보 109건, fact 후보 123건), `projects.yaml` 확정. **남은 것: 블록 승인·병합, `tags.yaml` 초안 확정** | 콘텐츠 리포지토리 `innowl-proposals` | 코드 아님. T-10은 이 결과로 완료, T-32가 후속 | T-32 |
 
 ### 2단계 — 조립 경로
 
@@ -68,7 +69,6 @@ T-01 프로젝트 골격
 |---|---|---|---|---|
 | T-08 | `facts.py` 로더 — 단일 파일 / `facts/` 양쪽 + 파일 단위 `_project` 상속 | `ppsk/facts.py`, `tests/test_facts.py` | id 중복 error, 80건 초과 notice, `_project`가 파일 내 전 fact에 적용되고 항목별 `projects`가 덮어씀 | T-09,11,12,14,18 |
 | T-09 | `facts.py` 파생 평가 — AST 화이트리스트 + 상속 | 위 파일 확장 | `eval()` 미사용, 깊이 1 강제, 금지 필드 error | T-12,14,19 |
-| T-10 | `numbers.py` — T-G1 코퍼스로 정규식 조정 | `ppsk/numbers.py` 수정, `tests/test_numbers.py` 확장 | 코퍼스 전건 통과 (제외 우선). 뼈대와 초기 케이스는 T-06에서 선작성 | T-12 |
 | T-11 | `check.py` 뼈대 — `run_checks` + level→exit code | `ppsk/check.py` | Finding 수집·정렬·요약만 | T-12,13,17,22 |
 | T-12 | 검증 규칙 — `fact.*`, `derived.*`, `exempt.usage`, `facts.count_threshold`, `project.unregistered`, `project.mismatch`, `project.unassigned` | `check.py` 확장, `tests/test_check.py` | 규칙 id별 최소 1케이스 | T-17,19 |
 | T-13 | 검증 규칙 — `tag.unregistered`, `block.stale`, `block.draft_used`, `angle.no_match`, `strict.not_verbatim`, `generated_from.mismatch` | 위와 동일 | 공백 정규화 후 축자 대조 | T-16,17 |
@@ -102,6 +102,7 @@ T-01 프로젝트 골격
 | T-29 | `scaffold`/`cmd_init` 개정 (T-05 개정) | `feat: scaffold — projects.yaml 템플릿 + rules 프로젝트 절 (T-29)` | 빈 등록부 + 주석 예시. `docs/rules.md`에 프로젝트 절 추가. 기존 리포지토리에서 `ppsk init` 재실행 시 `projects.yaml`만 추가됨(실행 확인) |
 | T-28 | `blocks.py` 개정 (T-03 개정) | `feat: blocks.py — projects 필드 파싱 (T-28)` | 알려진 선택 필드로 승격(미지 필드 warn 대상에서 제외), 문자열 1개도 목록으로 흡수. 미등록 id 판정은 check |
 | T-27 | `model.py` 개정 (T-02 개정) | `feat: model.py — Block/Fact 에 projects 필드 (T-27)` | `Block.projects`/`Fact.projects`, 기본값 빈 목록 = 공용 |
+| T-10 | `numbers.py` 코퍼스 조정 | `fix: numbers.py — T-G1 코퍼스로 정규식 조정 (T-10)` | 만/억/조 배수+단위, 달러, 범위 표현, 근사 접두어 통합, 겹침 매치 병합, 쉼표 단독 매치 버그. 제외 추가: 연월일·일정 표기·각주 번호·연령·N차. 실제 문장 21건 `CORPUS` 고정 |
 | T-26 | `projects.py` + `projects.yaml` 스키마 | `feat: projects.py — 프로젝트 등록부·소속 판정 (T-26)` | `selects(declared, project)` 순수 함수(미선언=공용, 미지정 수집=전부), `resolve`/`resolve_all`(alias·대소문자 흡수, 미등록은 `None`), `is_archived`/`active_ids`. 파일 부재는 빈 등록부 |
 | T-07 | `cmd_index` | `feat: cmd_index — INDEX.md 생성 (T-07)` | layer별 표(경로·정규형 tags·summary), draft 표시, 미등록 태그 경고 출력. 태그 정규화는 여기서(T-03 결정). 판정이 아니므로 항상 exit 0 → T-31로 개정 |
 | T-06 | `cmd_import` + `numbers.py` 뼈대 | `feat: cmd_import — 문단 분할 스캐폴드 (T-06)` | 헤딩 기준 분할(없으면 빈 줄), `import/<name>/`에 `status: draft`·`layer: TODO` 블록 후보 + `facts.candidates.yaml` + `tags.candidates.txt`. devplan §3.4 정규식을 `numbers.py`로 선작성 → T-30로 개정 |
@@ -138,3 +139,6 @@ T-01 프로젝트 골격
 | 2026-08-20 | 템플릿 `projects.yaml`은 빈 등록부로 시작 — 프로젝트 목록도 `tags.yaml`처럼 실물에서 확정한다. 다만 `ppsk init` 재실행은 기존 파일을 덮지 않으므로 이미 만들어진 리포지토리의 `docs/rules.md`에는 프로젝트 절이 추가되지 않는다(수동 반영 필요) | T-29, T-G1 |
 | 2026-08-20 | T-30에서 미등록 프로젝트 id를 임포트 **전에** 막기로(커맨드에서 exit 1). 원칙상 판정은 check 소유지만, 오타를 그대로 찍으면 승인까지 끝난 뒤 수십 개 파일을 되돌려야 한다 | T-30, T-12 |
 | 2026-08-20 | **프로젝트 축 코드 작업 완료(T-26~T-31).** 1단계 파이프라인(init → import → index)이 프로젝트 축을 태우고 동작. 나머지 반영분은 2단계 작업(T-08 `_project` 상속, T-12 `project.*` 규칙, T-15 `--project`, T-16 하드 필터)에 남아 있음 | T-08,12,15,16 |
+| 2026-08-20 | **T-G1 임포트 실행.** 과거 제안서 2건(TIPS 투자제안서 → `ad-samd`, MVP 공동개발 사업계획서 → `cogcare`)을 별도 콘텐츠 리포지토리에 임포트. 도구 리포지토리와 분리 — 회사 자료와 도구 이력이 섞이지 않게 | T-G1 |
+| 2026-08-20 | T-10 완료. 코퍼스가 드러낸 구멍 5가지(배수 뒤 단위 누락, 달러 미지원, 근사 표현 중복 계상, 범위 앞쪽 유실, 쉼표 단독 매치). 접두어를 각 패턴에 흡수하고 겹침은 긴 매치만 남기는 방식으로 해결 | T-12 |
+| 2026-08-20 | devplan §7 미확정 **문단 분할 단위 확정 — h2까지만**. 실물에서 h1~h6 전부 자르니 부모 헤딩이 껍데기 블록(364바이트)이 되고 109건이 나옴. 개정은 T-32 | T-06, T-32, devplan §7 |

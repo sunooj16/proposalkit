@@ -58,7 +58,7 @@ def test_fact_candidates_are_extracted_with_location():
     _, facts, _ = blocks_by_id()
 
     assert '"42명"' in facts
-    assert '"3,200억 원"' in facts
+    assert '"총 3,200억 원"' in facts  # 근사·수량 접두어를 포함해 한 건으로 잡는다
     assert "실증-결과" in facts
     assert "2025년" not in facts  # 연도는 주장이 아니다
 
