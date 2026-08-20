@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-30 `cmd_import` 개정)*
+*(없음 — 다음: T-31 `cmd_index` 개정)*
 
 ---
 
@@ -60,7 +60,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-30 | `cmd_import` 개정 — `--project <id>` 로 후보에 소속 스탬프 | `ppsk/commands/import_.py` | 미지정 시 `projects: []` + 안내 1줄 | T-G1 |
 | T-31 | `cmd_index` 개정 — `--project` 필터 + projects 열 | `ppsk/commands/index.py` | 미등록 id 지정 시 exit 1 (오타가 조용한 빈 인덱스가 되지 않게) | — |
 | T-G1 | **1단계 게이트** — 과거 제안서 2건 임포트, 승인/병합, `tags.yaml`·`projects.yaml` 초안 확정, 숫자 클래스 코퍼스 수집 | 채워진 리포지토리, `tests/fixtures/` | 코드 아님. 이 결과로 T-10 정규식과 devplan §7 미확정 항목 확정. 프로젝트 등록부도 여기서 실물로 확정 | T-10, T-26, devplan §7 |
 
@@ -99,6 +98,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-30 | `cmd_import` 개정 (T-06 개정) | `feat: cmd_import — --project 로 후보 소속 스탬프 (T-30)` | alias 흡수(`cog`→`cogtrain`), 미등록 id는 임포트 전에 exit 1. 미지정 시 `projects: []` + 안내 1줄. fact 후보는 파일 단위 `_project` 한 줄 |
 | T-29 | `scaffold`/`cmd_init` 개정 (T-05 개정) | `feat: scaffold — projects.yaml 템플릿 + rules 프로젝트 절 (T-29)` | 빈 등록부 + 주석 예시. `docs/rules.md`에 프로젝트 절 추가. 기존 리포지토리에서 `ppsk init` 재실행 시 `projects.yaml`만 추가됨(실행 확인) |
 | T-28 | `blocks.py` 개정 (T-03 개정) | `feat: blocks.py — projects 필드 파싱 (T-28)` | 알려진 선택 필드로 승격(미지 필드 warn 대상에서 제외), 문자열 1개도 목록으로 흡수. 미등록 id 판정은 check |
 | T-27 | `model.py` 개정 (T-02 개정) | `feat: model.py — Block/Fact 에 projects 필드 (T-27)` | `Block.projects`/`Fact.projects`, 기본값 빈 목록 = 공용 |
@@ -136,3 +136,4 @@ T-01 프로젝트 골격
 | 2026-08-20 | 프로젝트별 태그 어휘 분리는 하지 않음(devplan §7 미확정으로 기록). 어휘가 실제로 갈라지는 것을 본 뒤에 나눈다 | T-04, T-24 |
 | 2026-08-20 | T-26 완료. 미등록 프로젝트 판정을 로더가 아니라 호출부에 남김 — `resolve`는 `None`을 돌려주고 `project.unregistered` error 발화는 T-12 check이 소유. tags.py와 같은 구조 |
 | 2026-08-20 | 템플릿 `projects.yaml`은 빈 등록부로 시작 — 프로젝트 목록도 `tags.yaml`처럼 실물에서 확정한다. 다만 `ppsk init` 재실행은 기존 파일을 덮지 않으므로 이미 만들어진 리포지토리의 `docs/rules.md`에는 프로젝트 절이 추가되지 않는다(수동 반영 필요) | T-29, T-G1 |
+| 2026-08-20 | T-30에서 미등록 프로젝트 id를 임포트 **전에** 막기로(커맨드에서 exit 1). 원칙상 판정은 check 소유지만, 오타를 그대로 찍으면 승인까지 끝난 뒤 수십 개 파일을 되돌려야 한다 | T-30, T-12 |

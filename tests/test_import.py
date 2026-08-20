@@ -87,3 +87,29 @@ def test_duplicate_headings_get_unique_ids():
 def test_slugify_keeps_hangul_and_drops_punctuation():
     assert slugify("기술적 난제 (2025)!") == "기술적-난제-2025"
     assert slugify("!!!") == "block"
+
+
+def test_project_is_stamped_on_candidates():
+    parsed, facts, _ = blocks_by_id_with_project()
+
+    for meta, _ in parsed.values():
+        assert meta["projects"] == ["cogtrain"]
+    assert "_project: cogtrain" in facts  # fact 후보는 파일 단위로 한 번만 선언한다
+
+
+def blocks_by_id_with_project():
+    blocks, facts, tags = build(DOC, "archive/2025.md", ("cogtrain",))
+    parsed = {}
+    for _, text in blocks:
+        meta, body = parse_frontmatter(text)
+        parsed[meta["id"]] = (meta, body)
+    return parsed, facts, tags
+
+
+def test_without_project_candidates_are_shared():
+    """미지정은 공용이다 — 회사 소개처럼 실제로 공용인 문단이 섞여 있기 때문."""
+    parsed, facts, _ = blocks_by_id()
+
+    for meta, _ in parsed.values():
+        assert meta["projects"] == []
+    assert "_project" not in facts
