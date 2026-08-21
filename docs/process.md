@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-15 `cmd_new` — 제안서 스캐폴드 + angle 템플릿 상속)*
+*(없음 — 다음: T-16 `cmd_collect` — 프로젝트 하드 필터 → 태그 가중치 정렬)*
 
 ---
 
@@ -65,7 +65,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-15 | `cmd_new` — 제안서 스캐폴드 + angle 템플릿 상속 | `ppsk/commands/new.py` | 5파일 생성, `extends` 해석, `--project`를 `angle.md`의 `project:`로 기록 | T-16 |
 | T-16 | `cmd_collect` — 프로젝트 하드 필터 → 태그 가중치 정렬 + `generated_from` 갱신 | `ppsk/commands/collect.py` | **필터가 정렬보다 먼저**. 동점 시 경로 사전순(재현성 테스트). 필터 결과 0건은 정렬 이전에 실패 | T-13 |
 | T-17 | `cmd_check` — 콘솔 요약 + `report.md` | `ppsk/commands/check.py` | error 있으면 exit 1 | — |
 | T-18 | `cmd_verify` — `verified:` 줄만 정규식 치환 | `ppsk/commands/verify.py` | 주석·키 순서 보존, 파생 fact 거부, 타 fact 무변경 테스트 | — |
@@ -89,6 +88,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-15 | `cmd_new` | `feat: cmd_new — 제안서 스캐폴드 + angle 상속 (T-15)` | **4파일**(brief/angle/draft/deviations). `extends` 는 여기서 한 번 펼치고 출처로 남긴다. 앵글 템플릿은 패키지가 아니라 리포지토리의 `templates/angles/` 를 읽는다. `--project` 는 `angle.md` 의 `project:` 로, 미등록 id 는 쓰기 전에 exit 1. slug 경로 탈출 차단, 기존 폴더는 덮지 않음 |
 | T-14 | `render.py` | `feat: render.py — fact 치환·인라인 마커·report.md (T-14)` | `substitute`(미등록·무값 참조는 원문 유지 + error), `has_markers`, `render_report`/`write_report`. `value_of` 는 facts.py 소유(check·render 공용). `fact.no_value` 신설 — check 에서도 발화 |
 | T-13 | 검증 규칙 — tag/block/angle/strict | `feat: check.py — 블록·앵글 검증 규칙 (T-13)` | `angle.py` 신설(로더). `tag.unregistered`(정규화 1회), `block.stale`(계층 주기, `identity` 무기한), `block.draft_used`, `angle.no_match`(강조 태그·고정 포함·**제외** 경로), `strict.not_verbatim`(공백 정규화 후 부분 문자열), `generated_from.mismatch`(해시 접두 + 블록 실종), 블록 `project.mismatch`(T-12에서 이월) |
 | T-12 | 검증 규칙 — fact/derived/project | `feat: check.py — fact·project 검증 규칙 (T-12)` | `fact.unregistered`(미등록 `{{id}}` 참조 + 잔존 주장성 수치), `fact.stale`(파생은 입력 상속 기한, `fixed` 는 영구 통과), `project.unregistered`(블록·fact·`angle.md`), `project.mismatch`(초안이 쓴 타 프로젝트 전용 fact), `project.unassigned`(등록부 있을 때만), `exempt.usage`. 같은 fact 는 여러 번 참조돼도 한 번만 신고. `angle.malformed` 신설 |
@@ -164,3 +164,7 @@ T-01 프로젝트 골격
 | 2026-08-21 | `fact.no_value`(error) 신설. 값도 `num` 도 없는 fact 는 치환할 수 없다. render 에서만 잡으면 check 를 통과한 초안이 build 에서 죽으므로 `check` 에서도 발화한다 | T-12, T-17, T-19, devplan §3.6 |
 | 2026-08-21 | 미등록·무값 fact 참조는 치환하지 않고 **원문을 남긴다**. 빈칸으로 바꾸면 문장이 조용히 거짓말을 한다 | T-19 |
 | 2026-08-21 | `value_of` 는 facts.py 소유. check(`fact.no_value`)와 render(치환)가 같이 쓰는데 render 는 이미 check 를 import 하므로 반대 방향 의존이 생기면 순환한다 | T-14 |
+| 2026-08-21 | T-15 완료. devplan §4 의 "5파일" 대신 **4파일**만 만든다 — `final.md`·`report.md` 는 build·check 만이 만든다. 빈 파일이 놓여 있으면 검증을 통과한 산출물처럼 보인다 | T-17, T-19, devplan §4 |
+| 2026-08-21 | `extends` 는 `ppsk new` 가 한 번 펼치고 `extends:` 는 출처 표시로만 남긴다. 검사 때마다 다시 해석하면 템플릿을 고쳤을 때 이미 확정한 앵글이 조용히 바뀐다 | T-13, T-16 |
+| 2026-08-21 | 앵글 템플릿은 패키지가 아니라 **리포지토리**의 `templates/angles/` 에서 읽는다. 스캐폴드 이후 사람이 고쳐 쓰는 파일이고, 유형을 추가하려면 파일 하나만 놓으면 된다 | T-15 |
+| 2026-08-21 | 커맨드 루트 인자 표기가 갈렸다 — `init`/`index` 는 위치 인자 `path`, `new` 는 `--root`(위치 인자는 slug 가 차지). 남은 커맨드도 slug 를 받으므로 `--root` 로 간다 | T-16~19, T-21, T-23 |
