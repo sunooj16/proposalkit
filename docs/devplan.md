@@ -30,6 +30,7 @@ ppsk/
 ├── tags.py              # tags.yaml 로더, alias 정규화
 ├── projects.py          # projects.yaml 로더, 소속 판정 (하드 필터)
 ├── blocks.py            # frontmatter 파싱, core/ evidence/ strategy/ 스캔
+├── angle.py             # angle.md 로더 (강조 태그·고정 포함·제외·generated_from)
 ├── numbers.py           # 주장성 수치 탐지 정규식
 ├── lock.py              # core.lock 생성·대조, deviations 기록
 ├── check.py             # 검증 규칙 전체 → Finding 목록

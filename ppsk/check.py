@@ -7,10 +7,12 @@
 하는 커맨드는 Finding 을 출력하되 exit code 에 반영하지 않는다.
 """
 
+import re
 from datetime import date, timedelta
 from pathlib import Path
 
-from .blocks import FrontmatterError, load_blocks, parse_frontmatter
+from .angle import ANGLE_FILE, load_angle
+from .blocks import load_blocks
 from .facts import FACTS_FILE, eval_all_derived, load_facts
 from .model import Finding
 from .numbers import EXEMPT_MARKER, FACT_REF, find_claims
@@ -18,7 +20,6 @@ from .projects import load_projects, selects
 from .tags import load_tags
 
 DRAFT_FILE = "draft.md"
-ANGLE_FILE = "angle.md"
 
 # 심각한 순. 정렬과 요약 순서를 여기 하나로 고정한다.
 LEVELS = ("error", "warn", "notice", "report")
@@ -59,6 +60,11 @@ def exit_code(findings):
 
 def _line_of(text, pos):
     return text.count("\n", 0, pos) + 1
+
+
+def _squeeze(text):
+    """공백만 정규화한다. 마크다운 구조는 건드리지 않는다 (devplan §3.6)."""
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def recheck_due(fact, derived=None):
@@ -118,23 +124,10 @@ def _check_projects(blocks, facts, projects):
     return findings
 
 
-def _proposal_project(proposal, projects, findings):
-    """`angle.md` 의 `project:` 를 정규 id 로. 생략은 회사 단위(None)다."""
-    angle = Path(proposal) / ANGLE_FILE
-    if not angle.exists():
-        return None
-
-    location = f"{Path(proposal).name}/{ANGLE_FILE}"
-    try:
-        meta, _ = parse_frontmatter(angle.read_text(encoding="utf-8"))
-    except FrontmatterError as exc:
-        findings.append(Finding(level="error", rule="angle.malformed", message=str(exc), location=location))
-        return None
-
-    declared = meta.get("project")
+def _resolve_project(declared, projects, location, findings):
+    """선언된 프로젝트를 정규 id 로. 미등록이면 error 를 남기고 None."""
     if declared in (None, ""):
         return None
-
     resolved = projects.resolve(declared)
     if resolved is None:
         findings.append(
@@ -146,6 +139,126 @@ def _proposal_project(proposal, projects, findings):
             )
         )
     return resolved
+
+
+# ── 블록 규칙 (기획 3장·8장) ─────────────────────────────────────────────
+
+# 계층별 신선도 주기(일). identity 는 회사·팀이라 기한이 없다 (devplan §3.6).
+FRESHNESS = {"identity": None, "thesis": 180, "evidence": 90, "strategy": 180}
+
+
+def _check_block_freshness(blocks, today):
+    """`block.stale` — `last_verified` 가 계층 주기를 넘었는가.
+
+    `last_verified` 가 없는 블록은 기한도 없다. 승인 시점을 안 적었다는 뜻이지
+    낡았다는 뜻이 아니다.
+    """
+    findings = []
+    for block in blocks:
+        days = FRESHNESS.get(block.layer)
+        if days is None or block.last_verified is None:
+            continue
+        due = block.last_verified + timedelta(days=days)
+        if due < today:
+            findings.append(
+                Finding(
+                    level="warn",
+                    rule="block.stale",
+                    message=f"마지막 확인 {block.last_verified} — {block.layer} 주기 {days}일을 {(today - due).days}일 초과",
+                    location=block.path.as_posix(),
+                )
+            )
+    return findings
+
+
+def _matches(block, entry):
+    """`core/thesis/core-claim` 이 파일(`.md` 생략)과 디렉터리 접두를 모두 받는다.
+
+    사람이 `angle.md` 에 손으로 쓰는 칸이라 확장자를 붙이는지가 일정하지 않다.
+    """
+    path = block.path.as_posix()
+    entry = entry.strip().strip("/")
+    return path == entry or path == f"{entry}.md" or path.startswith(f"{entry}/")
+
+
+def _check_angle(angle, visible, normalized, tags, location):
+    """`angle.no_match` — 강조 태그·고정 포함·제외가 어떤 블록과도 맞지 않음.
+
+    제외 경로도 함께 본다. 오타 난 제외는 조용히 무효가 되고, 빼려던 블록이
+    그대로 제안서에 실린다 — 매칭 실패 중 가장 위험한 쪽이다.
+    """
+    findings = []
+
+    def no_match(what, value):
+        findings.append(
+            Finding(
+                level="error",
+                rule="angle.no_match",
+                message=f"{what}이(가) 어떤 블록과도 맞지 않는다: {value}",
+                location=location,
+            )
+        )
+
+    present = {tag for block in visible for tag in normalized.get(block.path, [])}
+
+    for tag, _grade in angle.emphasis:
+        if tags.normalize(tag) not in present:
+            no_match("강조 태그", tag)
+
+    for entry in angle.include:
+        if not any(_matches(block, entry) for block in visible):
+            no_match("고정 포함 경로", entry)
+
+    for entry in angle.exclude:
+        if not any(_matches(block, entry) for block in visible):
+            no_match("제외 경로", entry)
+
+    return findings
+
+
+def _check_used_blocks(angle, blocks, draft, project, location):
+    """`generated_from` 이 가리키는 블록들 — 초안이 실제로 쓴 것이 이 목록이다.
+
+    `generated_from.mismatch` / `block.draft_used` / `project.mismatch` /
+    `strict.not_verbatim`.
+    """
+    findings = []
+    by_path = {block.path.as_posix(): block for block in blocks}
+    normalized_draft = _squeeze(draft) if draft is not None else None
+
+    def add(level, rule, message):
+        findings.append(Finding(level=level, rule=rule, message=message, location=location))
+
+    for path, digest in angle.generated_from:
+        block = by_path.get(path)
+        if block is None:
+            add("warn", "generated_from.mismatch", f"블록이 없다: {path} — 이름이 바뀌었거나 지워졌다")
+            continue
+
+        if digest and not block.sha.startswith(digest):
+            add(
+                "warn",
+                "generated_from.mismatch",
+                f"{path} — 수집 당시 {digest}, 현재 {block.sha[: len(digest)]}. `ppsk collect` 로 다시 뽑을 것",
+            )
+
+        if block.status == "draft":
+            add("warn", "block.draft_used", f"draft 상태 블록 사용: {path}")
+
+        if not selects(block.projects, project):
+            add(
+                "error",
+                "project.mismatch",
+                f"다른 프로젝트 전용 블록: {path} ({', '.join(block.projects)}) — 이 제안서는 {project}",
+            )
+
+        # strict 블록은 문구가 자산이다. 초안이 바꿔 썼으면 core 를 고치거나 free 로 내려야 한다.
+        if block.editable == "strict" and normalized_draft is not None:
+            body = _squeeze(block.body)
+            if body and body not in normalized_draft:
+                add("error", "strict.not_verbatim", f"strict 블록 본문이 초안에 축자 등장하지 않는다: {path}")
+
+    return findings
 
 
 # ── 초안 규칙 (기획 6장·8장) ─────────────────────────────────────────────
@@ -240,20 +353,38 @@ def run_checks(root, proposal=None, today=None):
     blocks = collect(load_blocks(root))
     facts = collect(load_facts(root))
     derived = collect(eval_all_derived(facts))
-    collect(load_tags(root))
+    tags = collect(load_tags(root))
     projects = collect(load_projects(root))
 
+    # 태그 정규화는 딱 한 번만 돈다. `normalize` 가 미등록 카운트를 올리므로
+    # 두 번 돌리면 `tag.unregistered` 건수가 부풀려진다 (T-04).
+    normalized = {block.path: tags.normalize_all(block.tags) for block in blocks}
+
     findings += _check_projects(blocks, facts, projects)
+    findings += _check_block_freshness(blocks, today)
 
     if proposal is not None:
         proposal = Path(proposal)
-        project = _proposal_project(proposal, projects, findings)
-        draft = proposal / DRAFT_FILE
-        if draft.exists():
-            findings += _check_draft(
-                draft.read_text(encoding="utf-8"), f"{proposal.name}/{DRAFT_FILE}", facts, derived, project, today
-            )
+        angle_location = f"{proposal.name}/{ANGLE_FILE}"
+        angle_path = proposal / ANGLE_FILE
+        angle, error = load_angle(angle_path) if angle_path.exists() else (None, "")
+        if error:
+            findings.append(Finding(level="error", rule="angle.malformed", message=error, location=angle_location))
 
-    # ponytail: 블록 규칙(tag/block/angle/strict)과 generated_from 은 T-13.
-    # 블록의 project.mismatch 도 generated_from 목록이 필요해 T-13 으로 미뤘다.
+        project = _resolve_project(angle.project if angle else None, projects, angle_location, findings)
+        draft_path = proposal / DRAFT_FILE
+        draft = draft_path.read_text(encoding="utf-8") if draft_path.exists() else None
+
+        if draft is not None:
+            findings += _check_draft(draft, f"{proposal.name}/{DRAFT_FILE}", facts, derived, project, today)
+
+        if angle is not None:
+            # 매칭 대상은 이 프로젝트에서 보이는 블록뿐이다. collect 이 거른 뒤 정렬하는
+            # 것과 같은 순서여야 "정렬 결과에 없는 태그"가 매칭 성공으로 뜨지 않는다.
+            visible = [block for block in blocks if selects(block.projects, project)]
+            findings += _check_angle(angle, visible, normalized, tags, angle_location)
+            findings += _check_used_blocks(angle, blocks, draft, project, angle_location)
+
+    # 미등록 태그 카운트는 위의 정규화가 전부 끝난 뒤에 뽑는다.
+    findings += tags.unregistered_findings()
     return sort_findings(findings)

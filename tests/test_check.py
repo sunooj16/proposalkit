@@ -300,3 +300,135 @@ def test_draft_without_proposal_arg_is_not_checked(tmp_path):
     """초안 검사는 제안서를 지목했을 때만 돈다 — 전역 검사가 남의 초안을 끌고 오지 않게."""
     repo(tmp_path, draft="시장은 3,200억 원 규모다.\n")
     assert run_checks(tmp_path, today=TODAY) == []
+
+
+# ── 블록·앵글 규칙 (T-13) ────────────────────────────────────────────────
+
+TAGS = "기술난제:\n  aliases: [난제]\n시장규모: {}\n"
+
+
+def test_tag_unregistered_counted_once_per_tag(tmp_path):
+    """정규화는 한 번만 돈다 — 두 번 돌면 건수가 부풀려진다."""
+    repo(tmp_path, tags=TAGS, block=BLOCK.format(extra="tags: [난제, 미등록태그]\n"))
+    findings = run_checks(tmp_path, today=TODAY)
+    assert rules(findings) == ["tag.unregistered"]
+    assert findings[0].level == "warn"
+    assert "미등록태그 (1회)" in findings[0].message
+
+
+def test_tag_unregistered_promotable_to_error(tmp_path):
+    repo(tmp_path, tags="_config:\n  unregistered: error\n" + TAGS, block=BLOCK.format(extra="tags: [없는태그]\n"))
+    assert exit_code(run_checks(tmp_path, today=TODAY)) == 1
+
+
+def test_block_stale_uses_layer_period(tmp_path):
+    repo(tmp_path, block=BLOCK.format(extra="last_verified: 2026-01-01\n"))  # thesis 180일
+    findings = run_checks(tmp_path, today=TODAY)
+    assert rules(findings) == ["block.stale"]
+    assert findings[0].level == "warn"
+
+    # 확인일이 없으면 기한도 없다.
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    repo(fresh)
+    assert run_checks(fresh, today=TODAY) == []
+
+
+def test_identity_layer_never_stale(tmp_path):
+    block = BLOCK.format(extra="last_verified: 2020-01-01\n").replace("layer: thesis", "layer: identity")
+    repo(tmp_path, block=block)
+    assert run_checks(tmp_path, today=TODAY) == []
+
+
+def angle_with(generated_from="", extra=""):
+    return f"---\n{generated_from}---\n\n## 강조\n{extra}"
+
+
+def test_generated_from_mismatch_on_hash_and_missing_block(tmp_path):
+    repo(
+        tmp_path,
+        angle=angle_with("generated_from:\n  - core/thesis/b.md@deadbee\n  - core/thesis/gone.md@1234567\n"),
+        draft="본문.\n",
+    )
+    findings = run_checks(tmp_path, tmp_path / "proposals" / "2026-08-tips-rnd", today=TODAY)
+    assert rules(findings) == ["generated_from.mismatch", "generated_from.mismatch"]
+    assert exit_code(findings) == 0  # 경고다. 다시 수집하면 된다
+
+
+def test_block_draft_used_is_warn(tmp_path):
+    repo(
+        tmp_path,
+        block=BLOCK.format(extra="").replace("status: active", "status: draft"),
+        angle=angle_with("generated_from:\n  - core/thesis/b.md\n"),
+        draft="본문.\n",
+    )
+    findings = run_checks(tmp_path, tmp_path / "proposals" / "2026-08-tips-rnd", today=TODAY)
+    assert rules(findings) == ["block.draft_used"]
+
+
+def test_strict_not_verbatim(tmp_path):
+    angle = angle_with("generated_from:\n  - core/thesis/b.md\n")
+    proposal = repo(tmp_path, angle=angle, draft="본문을 마음대로 고쳐 썼다.\n")
+    findings = run_checks(tmp_path, proposal, today=TODAY)
+    assert rules(findings) == ["strict.not_verbatim"]
+    assert exit_code(findings) == 1
+
+
+def test_strict_verbatim_survives_rewrapping(tmp_path):
+    """공백만 정규화한다 — 줄바꿈 위치가 달라졌다고 실패하면 아무도 안 쓴다."""
+    block = BLOCK.format(extra="").replace("본문.", "긴 문장 하나를\n두 줄로 나눠 썼다.")
+    proposal = repo(
+        tmp_path,
+        block=block,
+        angle=angle_with("generated_from:\n  - core/thesis/b.md\n"),
+        draft="## 배경\n\n긴 문장 하나를 두 줄로   나눠 썼다.\n",
+    )
+    assert run_checks(tmp_path, proposal, today=TODAY) == []
+
+
+def test_free_block_may_be_reworded(tmp_path):
+    block = BLOCK.format(extra="").replace("editable: strict", "editable: free")
+    proposal = repo(tmp_path, block=block, angle=angle_with("generated_from:\n  - core/thesis/b.md\n"), draft="고쳐 썼다.\n")
+    assert run_checks(tmp_path, proposal, today=TODAY) == []
+
+
+def test_block_project_mismatch(tmp_path):
+    proposal = repo(
+        tmp_path,
+        projects=REGISTRY,
+        block=BLOCK.format(extra="projects: [cogtrain]\n"),
+        angle="---\nproject: ad_samd\ngenerated_from:\n  - core/thesis/b.md\n---\n\n## 강조\n",
+        draft="본문.\n",
+    )
+    findings = run_checks(tmp_path, proposal, today=TODAY)
+    assert "project.mismatch" in rules(findings)
+    assert exit_code(findings) == 1
+
+
+def test_angle_no_match_on_tag_include_and_exclude(tmp_path):
+    proposal = repo(
+        tmp_path,
+        tags=TAGS,
+        block=BLOCK.format(extra="tags: [기술난제]\n"),
+        angle=(
+            "---\nproposal_type: rnd\n---\n\n## 강조\n- tag:난제 (강)\n- tag:시장규모 (배경)\n\n"
+            "## 고정 포함\n- core/thesis/b\n- core/thesis/없음\n\n## 제외\n- strategy/pricing\n"
+        ),
+        draft="본문.\n",
+    )
+    findings = run_checks(tmp_path, proposal, today=TODAY)
+    # alias(난제)와 실재 경로(core/thesis/b)는 통과. 나머지 셋은 매칭 실패.
+    assert rules(findings) == ["angle.no_match"] * 3
+    assert sorted(x.message.split(": ")[-1] for x in findings) == ["core/thesis/없음", "strategy/pricing", "시장규모"]
+
+
+def test_angle_matching_respects_project_filter(tmp_path):
+    """다른 프로젝트 전용 블록의 태그는 매칭 대상이 아니다 — collect 이 거른 뒤 정렬하므로."""
+    proposal = repo(
+        tmp_path,
+        tags=TAGS,
+        projects=REGISTRY,
+        block=BLOCK.format(extra="tags: [기술난제]\nprojects: [cogtrain]\n"),
+        angle="---\nproject: ad_samd\n---\n\n## 강조\n- tag:기술난제 (강)\n",
+    )
+    assert "angle.no_match" in rules(run_checks(tmp_path, proposal, today=TODAY))

@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-13 검증 규칙 `tag.*`/`block.*`/`angle.no_match`/`strict.*`/`generated_from.*`)*
+*(없음 — 다음: T-14 `render.py` — `{{fact}}` 치환·인라인 마커·`report.md`)*
 
 ---
 
@@ -65,7 +65,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-13 | 검증 규칙 — `tag.unregistered`, `block.stale`, `block.draft_used`, `angle.no_match`, `strict.not_verbatim`, `generated_from.mismatch` | 위와 동일 | 공백 정규화 후 축자 대조 | T-16,17 |
 | T-14 | `render.py` — `{{fact}}` 치환, 인라인 마커, `report.md` | `ppsk/render.py` | `--preview` 마커 삽입 / 잔존 시 build 거부 | T-17,19 |
 | T-15 | `cmd_new` — 제안서 스캐폴드 + angle 템플릿 상속 | `ppsk/commands/new.py` | 5파일 생성, `extends` 해석, `--project`를 `angle.md`의 `project:`로 기록 | T-16 |
 | T-16 | `cmd_collect` — 프로젝트 하드 필터 → 태그 가중치 정렬 + `generated_from` 갱신 | `ppsk/commands/collect.py` | **필터가 정렬보다 먼저**. 동점 시 경로 사전순(재현성 테스트). 필터 결과 0건은 정렬 이전에 실패 | T-13 |
@@ -91,6 +90,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-13 | 검증 규칙 — tag/block/angle/strict | `feat: check.py — 블록·앵글 검증 규칙 (T-13)` | `angle.py` 신설(로더). `tag.unregistered`(정규화 1회), `block.stale`(계층 주기, `identity` 무기한), `block.draft_used`, `angle.no_match`(강조 태그·고정 포함·**제외** 경로), `strict.not_verbatim`(공백 정규화 후 부분 문자열), `generated_from.mismatch`(해시 접두 + 블록 실종), 블록 `project.mismatch`(T-12에서 이월) |
 | T-12 | 검증 규칙 — fact/derived/project | `feat: check.py — fact·project 검증 규칙 (T-12)` | `fact.unregistered`(미등록 `{{id}}` 참조 + 잔존 주장성 수치), `fact.stale`(파생은 입력 상속 기한, `fixed` 는 영구 통과), `project.unregistered`(블록·fact·`angle.md`), `project.mismatch`(초안이 쓴 타 프로젝트 전용 fact), `project.unassigned`(등록부 있을 때만), `exempt.usage`. 같은 fact 는 여러 번 참조돼도 한 번만 신고. `angle.malformed` 신설 |
 | T-11 | `check.py` 뼈대 | `feat: check.py — run_checks 뼈대 (T-11)` | `run_checks(root, proposal=None)` 가 로더 4종 + 파생 평가 Finding 을 합류. `sort_findings`(레벨→규칙→위치→문구, 미지 레벨은 뒤), `counts`/`summary`, `exit_code`(error 1건이면 1). 규칙은 없음 |
 | T-31 | `cmd_index` 개정 (T-07 개정) | `feat: cmd_index — --project 필터 + 프로젝트 열 (T-31)` | 공용 블록은 항상 포함, 타 프로젝트 전용은 차단. 미등록 id는 exit 1. 프로젝트 열은 소속 없으면 `공용`. `-o/--output` 추가 |
@@ -155,3 +155,8 @@ T-01 프로젝트 골격
 | 2026-08-21 | T-12 완료. 규칙 표에 없던 `angle.malformed`(error) 신설 — `angle.md` frontmatter 가 깨지면 `project:` 를 못 읽어 소속 검사가 조용히 통과한다. `Finding.location` 은 `as_posix()` 로 고정(blocks.py 포함) — `report.md` 는 커밋되는 파일이라 구분자가 OS 마다 달라지면 안 된다. `numbers.FACT_REF` 에 캡처 그룹 추가 | T-13, T-14, T-17, devplan §3.6 |
 | 2026-08-21 | 블록의 `project.mismatch` 는 T-13 으로. 초안이 어떤 블록을 썼는지는 `angle.md` 의 `generated_from` 목록으로만 알 수 있고, 그 목록은 `generated_from.mismatch`(T-13)가 이미 읽는다. 두 곳에서 파싱하지 않게 | T-13 |
 | 2026-08-21 | `tests/fixtures/` 최소 리포지토리는 T-12 에서도 만들지 않음 — `tmp_path` 에 리포지토리를 세우는 헬퍼 하나로 충분했다. 커맨드 레벨 테스트가 필요한 T-17 에서 다시 판단 | T-17, devplan §6 |
+| 2026-08-21 | T-13 완료. `angle.md` 로더를 `ppsk/angle.py` 로 분리 — check(T-13)와 collect(T-16)가 같은 파일을 읽는다. 두 곳에서 절 파싱을 따로 하면 `## 강조` 서식이 갈라진다. devplan §1 코드 구조에 추가 | T-16, devplan §1 |
+| 2026-08-21 | `angle.no_match` 를 **제외 경로**에도 적용. 오타 난 제외는 조용히 무효가 되고 빼려던 블록이 그대로 실린다 — 매칭 실패 중 가장 위험한 쪽이다 | T-13, T-16 |
+| 2026-08-21 | 앵글 매칭 대상은 프로젝트 필터를 통과한 블록뿐. `collect` 이 거른 뒤 정렬하는 순서와 같아야 "정렬 결과에 없는 태그"가 매칭 성공으로 뜨지 않는다 | T-16 |
+| 2026-08-21 | 태그 정규화는 `run_checks` 에서 딱 한 번. `Tags.normalize` 가 미등록 카운트를 올리므로 두 번 돌리면 `tag.unregistered` 건수가 부풀려진다 | T-04, T-17 |
+| 2026-08-21 | 앵글의 `extends` 는 로더가 해석하지 않는다(값만 보관). 상속 병합은 `ppsk new` 시점 한 번이면 되고, check 이 또 병합하면 두 소유자가 생긴다 | T-15 |
