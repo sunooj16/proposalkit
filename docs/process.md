@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-14 `render.py` — `{{fact}}` 치환·인라인 마커·`report.md`)*
+*(없음 — 다음: T-15 `cmd_new` — 제안서 스캐폴드 + angle 템플릿 상속)*
 
 ---
 
@@ -65,7 +65,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-14 | `render.py` — `{{fact}}` 치환, 인라인 마커, `report.md` | `ppsk/render.py` | `--preview` 마커 삽입 / 잔존 시 build 거부 | T-17,19 |
 | T-15 | `cmd_new` — 제안서 스캐폴드 + angle 템플릿 상속 | `ppsk/commands/new.py` | 5파일 생성, `extends` 해석, `--project`를 `angle.md`의 `project:`로 기록 | T-16 |
 | T-16 | `cmd_collect` — 프로젝트 하드 필터 → 태그 가중치 정렬 + `generated_from` 갱신 | `ppsk/commands/collect.py` | **필터가 정렬보다 먼저**. 동점 시 경로 사전순(재현성 테스트). 필터 결과 0건은 정렬 이전에 실패 | T-13 |
 | T-17 | `cmd_check` — 콘솔 요약 + `report.md` | `ppsk/commands/check.py` | error 있으면 exit 1 | — |
@@ -90,6 +89,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-14 | `render.py` | `feat: render.py — fact 치환·인라인 마커·report.md (T-14)` | `substitute`(미등록·무값 참조는 원문 유지 + error), `has_markers`, `render_report`/`write_report`. `value_of` 는 facts.py 소유(check·render 공용). `fact.no_value` 신설 — check 에서도 발화 |
 | T-13 | 검증 규칙 — tag/block/angle/strict | `feat: check.py — 블록·앵글 검증 규칙 (T-13)` | `angle.py` 신설(로더). `tag.unregistered`(정규화 1회), `block.stale`(계층 주기, `identity` 무기한), `block.draft_used`, `angle.no_match`(강조 태그·고정 포함·**제외** 경로), `strict.not_verbatim`(공백 정규화 후 부분 문자열), `generated_from.mismatch`(해시 접두 + 블록 실종), 블록 `project.mismatch`(T-12에서 이월) |
 | T-12 | 검증 규칙 — fact/derived/project | `feat: check.py — fact·project 검증 규칙 (T-12)` | `fact.unregistered`(미등록 `{{id}}` 참조 + 잔존 주장성 수치), `fact.stale`(파생은 입력 상속 기한, `fixed` 는 영구 통과), `project.unregistered`(블록·fact·`angle.md`), `project.mismatch`(초안이 쓴 타 프로젝트 전용 fact), `project.unassigned`(등록부 있을 때만), `exempt.usage`. 같은 fact 는 여러 번 참조돼도 한 번만 신고. `angle.malformed` 신설 |
 | T-11 | `check.py` 뼈대 | `feat: check.py — run_checks 뼈대 (T-11)` | `run_checks(root, proposal=None)` 가 로더 4종 + 파생 평가 Finding 을 합류. `sort_findings`(레벨→규칙→위치→문구, 미지 레벨은 뒤), `counts`/`summary`, `exit_code`(error 1건이면 1). 규칙은 없음 |
@@ -160,3 +160,7 @@ T-01 프로젝트 골격
 | 2026-08-21 | 앵글 매칭 대상은 프로젝트 필터를 통과한 블록뿐. `collect` 이 거른 뒤 정렬하는 순서와 같아야 "정렬 결과에 없는 태그"가 매칭 성공으로 뜨지 않는다 | T-16 |
 | 2026-08-21 | 태그 정규화는 `run_checks` 에서 딱 한 번. `Tags.normalize` 가 미등록 카운트를 올리므로 두 번 돌리면 `tag.unregistered` 건수가 부풀려진다 | T-04, T-17 |
 | 2026-08-21 | 앵글의 `extends` 는 로더가 해석하지 않는다(값만 보관). 상속 병합은 `ppsk new` 시점 한 번이면 되고, check 이 또 병합하면 두 소유자가 생긴다 | T-15 |
+| 2026-08-21 | T-14 완료. `report.md` 는 기획 8장 샘플의 규칙별 전용 서식 대신 **레벨별 그룹 + `규칙 id — 위치 — 문구`** 한 줄로. 판정 문구는 이미 `Finding.message` 가 다음 행동까지 들고 있고, 규칙마다 서식을 짜면 규칙을 늘릴 때마다 두 곳을 고친다 | T-17, 기획 8장 |
+| 2026-08-21 | `fact.no_value`(error) 신설. 값도 `num` 도 없는 fact 는 치환할 수 없다. render 에서만 잡으면 check 를 통과한 초안이 build 에서 죽으므로 `check` 에서도 발화한다 | T-12, T-17, T-19, devplan §3.6 |
+| 2026-08-21 | 미등록·무값 fact 참조는 치환하지 않고 **원문을 남긴다**. 빈칸으로 바꾸면 문장이 조용히 거짓말을 한다 | T-19 |
+| 2026-08-21 | `value_of` 는 facts.py 소유. check(`fact.no_value`)와 render(치환)가 같이 쓰는데 render 는 이미 check 를 import 하므로 반대 방향 의존이 생기면 순환한다 | T-14 |

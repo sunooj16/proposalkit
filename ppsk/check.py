@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .angle import ANGLE_FILE, load_angle
 from .blocks import load_blocks
-from .facts import FACTS_FILE, eval_all_derived, load_facts
+from .facts import FACTS_FILE, eval_all_derived, load_facts, value_of
 from .model import Finding
 from .numbers import EXEMPT_MARKER, FACT_REF, find_claims
 from .projects import load_projects, selects
@@ -287,6 +287,10 @@ def _check_draft(text, location, facts, derived, project, today):
         if fact is None:
             once("fact.unregistered", fact_id, "error", f"미등록 fact 참조: {match.group(0)}", line)
             continue
+
+        if value_of(fact, derived) is None:
+            # build 때까지 미루면 check 를 통과한 초안이 변환에서 죽는다.
+            once("fact.no_value", fact_id, "error", f"값이 없는 fact: {fact_id} — value 또는 num 이 있어야 한다", line)
 
         if not selects(fact.projects, project):
             once(

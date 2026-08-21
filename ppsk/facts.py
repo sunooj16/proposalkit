@@ -356,6 +356,20 @@ def eval_derived(fact, facts):
     )
 
 
+def value_of(fact, derived=None):
+    """치환에 쓸 문자열. `None` 이면 값이 없는 fact 다.
+
+    `value` 가 우선한다 — "3,200억 원"처럼 사람이 읽을 표기를 담는 칸이고,
+    `num` 은 파생 계산용이다.
+    """
+    if fact.derived:
+        result = (derived or {}).get(fact.id)
+        return result.value if result is not None else None
+    if fact.value not in (None, ""):
+        return str(fact.value)
+    return None if fact.num is None else f"{fact.num:g}"
+
+
 def eval_all_derived(facts):
     """`(dict[id, Derived], list[Finding])`. 캐시 없음 — build 마다 다시 센다."""
     results, findings = {}, []

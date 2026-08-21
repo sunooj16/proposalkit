@@ -223,6 +223,7 @@ CLAIM = [
 | `derived.invalid_expr` | error |
 | `derived.invalid_format` | error |
 | `derived.missing_num` | error |
+| `fact.no_value` | error |
 | `derived.forbidden_field` | error |
 | `core.lock_mismatch` | error (+ deviation 자동 기록) |
 | `angle.no_match` | error |
@@ -253,7 +254,7 @@ FRESHNESS = {"identity": None, "thesis": 180, "evidence": 90, "strategy": 180}
 
 ### 3.7 render.py
 
-- `substitute(text, facts, today) -> (final_text, findings)` — `{{id}}`는 값으로, `{{!x}}`는 `x`로 치환.
+- `substitute(text, facts, today, derived=None, preview=False) -> (final_text, findings)` — `{{id}}`는 값으로, `{{!x}}`는 `x`로 치환. 미등록·무값 참조는 **원문 유지** + error.
 - `--preview`: 재확인 필요 fact 위치에 `<!-- ⚠ 재확인 필요: id -->` 삽입.
 - `ppsk build`(preview 아님)는 `<!-- ⚠` 잔존 시 변환 거부(exit 1).
 - `write_report(proposal_dir, findings)` → `report.md`. 첫 줄에 `<!-- 자동 생성 — 편집 금지 -->`.

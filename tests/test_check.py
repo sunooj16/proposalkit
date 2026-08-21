@@ -432,3 +432,11 @@ def test_angle_matching_respects_project_filter(tmp_path):
         angle="---\nproject: ad_samd\n---\n\n## 강조\n- tag:기술난제 (강)\n",
     )
     assert "angle.no_match" in rules(run_checks(tmp_path, proposal, today=TODAY))
+
+
+def test_fact_without_value_fails_at_check_not_build(tmp_path):
+    """build 때까지 미루면 check 를 통과한 초안이 변환에서 죽는다."""
+    proposal = repo(tmp_path, facts="empty:\n  source: 어딘가\n", draft="값은 {{empty}} 다.\n")
+    findings = run_checks(tmp_path, proposal, today=TODAY)
+    assert rules(findings) == ["fact.no_value"]
+    assert exit_code(findings) == 1
