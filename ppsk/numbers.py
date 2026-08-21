@@ -8,7 +8,7 @@
 import re
 
 EXEMPT_MARKER = re.compile(r"\{\{![^}]*\}\}")  # 면제 마커 — 스캔 전 제거, 건수만 센다
-FACT_REF = re.compile(r"\{\{[a-z0-9_]+\}\}")  # fact 참조 — 스캔 전 제거
+FACT_REF = re.compile(r"\{\{([a-z0-9_]+)\}\}")  # fact 참조 — 스캔 전 제거. check 가 id 를 쓴다
 
 # 제외가 우선한다. 주장이 아닌 수치를 먼저 소거한 뒤 대상 패턴을 찾는다.
 EXCLUDE = [

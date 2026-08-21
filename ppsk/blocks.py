@@ -75,11 +75,13 @@ def block_paths(root):
 
 def load_block(path, root):
     """`(Block | None, list[Finding])`. 필수 필드가 깨지면 블록은 None."""
+    # as_posix — Finding.location 은 report.md 로 커밋된다. 구분자가 OS 마다 달라지면 안 된다.
     rel = Path(path).relative_to(root)
+    where = rel.as_posix()
     findings = []
 
     def bad(message):
-        findings.append(Finding(level="error", rule="block.malformed", message=message, location=str(rel)))
+        findings.append(Finding(level="error", rule="block.malformed", message=message, location=where))
 
     try:
         meta, body = parse_frontmatter(Path(path).read_text(encoding="utf-8"))
@@ -98,7 +100,7 @@ def load_block(path, root):
 
     for key in sorted(set(meta) - set(REQUIRED) - set(OPTIONAL)):
         findings.append(
-            Finding(level="warn", rule="block.unknown_field", message=f"알 수 없는 필드: {key}", location=str(rel))
+            Finding(level="warn", rule="block.unknown_field", message=f"알 수 없는 필드: {key}", location=where)
         )
 
     last_verified = meta.get("last_verified")

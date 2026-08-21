@@ -1,19 +1,24 @@
 """검증 규칙 실행과 요약.
 
-`run_checks` 가 로더를 전부 돌려 `Finding` 을 한 자리에 모으고, 정렬해서
-돌려준다. 콘솔 출력과 `report.md` 는 커맨드(T-17)가, 개별 검증 규칙은
-T-12/T-13 이 여기에 붙는다.
+`run_checks` 가 로더를 전부 돌려 `Finding` 을 한 자리에 모으고, 규칙을 적용한
+뒤 정렬해서 돌려준다. 콘솔 출력과 `report.md` 는 커맨드(T-17)가 만든다.
 
 **판정과 종료코드는 이 모듈이 단독으로 소유한다** — `ppsk index` 처럼 리포트만
 하는 커맨드는 Finding 을 출력하되 exit code 에 반영하지 않는다.
 """
 
+from datetime import date, timedelta
 from pathlib import Path
 
-from .blocks import load_blocks
-from .facts import eval_all_derived, load_facts
-from .projects import load_projects
+from .blocks import FrontmatterError, load_blocks, parse_frontmatter
+from .facts import FACTS_FILE, eval_all_derived, load_facts
+from .model import Finding
+from .numbers import EXEMPT_MARKER, FACT_REF, find_claims
+from .projects import load_projects, selects
 from .tags import load_tags
+
+DRAFT_FILE = "draft.md"
+ANGLE_FILE = "angle.md"
 
 # 심각한 순. 정렬과 요약 순서를 여기 하나로 고정한다.
 LEVELS = ("error", "warn", "notice", "report")
@@ -52,7 +57,170 @@ def exit_code(findings):
     return 1 if any(f.level == "error" for f in findings) else 0
 
 
-def run_checks(root, proposal=None):
+def _line_of(text, pos):
+    return text.count("\n", 0, pos) + 1
+
+
+def recheck_due(fact, derived=None):
+    """이 fact 의 재확인 기한. `None` 이면 기한 없음 — 영구 통과다.
+
+    파생 fact 는 자기 기한을 갖지 않고 입력에서 상속한다(T-09가 계산). 평가에
+    실패한 파생 fact 는 이미 `derived.*` error 가 났으므로 기한을 따지지 않는다.
+    """
+    if fact.derived:
+        result = (derived or {}).get(fact.id)
+        return result.recheck_due if result is not None else None
+    # stability: fixed 는 특허번호·설립일이다. 주기를 선언해도 기한이 없다.
+    if fact.stability == "fixed" or fact.verified is None or fact.recheck_days is None:
+        return None
+    return fact.verified + timedelta(days=fact.recheck_days)
+
+
+# ── 프로젝트 규칙 (기획 2장 축 3) ────────────────────────────────────────
+
+
+def _check_projects(blocks, facts, projects):
+    """`project.unregistered` / `project.unassigned`.
+
+    오타 하나가 조용한 빈 결과가 되는 축이라 미등록은 처음부터 error 다.
+    소속 미선언은 오류가 아니라 "공용으로 취급한다"는 알림이다.
+    """
+    findings = []
+    # 블록 먼저, 그다음 fact. 정렬이 최종 순서를 잡으므로 여기서는 재현성만 지킨다.
+    # as_posix — report.md 는 커밋되는 파일이다. 구분자가 OS 마다 달라지면 안 된다.
+    items = [(b.path.as_posix(), b.projects) for b in blocks]
+    items += [(f"{FACTS_FILE}:{f.id}", f.projects) for f in facts.values()]
+
+    for location, declared in items:
+        if not declared:
+            if projects.entries:
+                # 등록부가 비어 있으면 전부 공용이 정상이다. 그때는 알리지 않는다.
+                findings.append(
+                    Finding(
+                        level=projects.unassigned_level,
+                        rule="project.unassigned",
+                        message="소속 미선언 — 전 프로젝트 공용으로 취급한다",
+                        location=location,
+                    )
+                )
+            continue
+
+        _, unknown = projects.resolve_all(declared)
+        for name in unknown:
+            findings.append(
+                Finding(
+                    level="error",
+                    rule="project.unregistered",
+                    message=f"미등록 프로젝트: {name} — projects.yaml 에 등록하거나 오타를 고칠 것",
+                    location=location,
+                )
+            )
+    return findings
+
+
+def _proposal_project(proposal, projects, findings):
+    """`angle.md` 의 `project:` 를 정규 id 로. 생략은 회사 단위(None)다."""
+    angle = Path(proposal) / ANGLE_FILE
+    if not angle.exists():
+        return None
+
+    location = f"{Path(proposal).name}/{ANGLE_FILE}"
+    try:
+        meta, _ = parse_frontmatter(angle.read_text(encoding="utf-8"))
+    except FrontmatterError as exc:
+        findings.append(Finding(level="error", rule="angle.malformed", message=str(exc), location=location))
+        return None
+
+    declared = meta.get("project")
+    if declared in (None, ""):
+        return None
+
+    resolved = projects.resolve(declared)
+    if resolved is None:
+        findings.append(
+            Finding(
+                level="error",
+                rule="project.unregistered",
+                message=f"미등록 프로젝트: {declared} — projects.yaml 에 등록하거나 오타를 고칠 것",
+                location=location,
+            )
+        )
+    return resolved
+
+
+# ── 초안 규칙 (기획 6장·8장) ─────────────────────────────────────────────
+
+
+def _check_draft(text, location, facts, derived, project, today):
+    """`fact.unregistered` / `fact.stale` / `project.mismatch` / `exempt.usage`.
+
+    fact 는 여러 번 참조돼도 한 번만 신고한다 — 기한 경과나 소속 불일치는
+    참조의 속성이 아니라 fact 의 속성이다. 리포트가 같은 줄로 부풀지 않게.
+    """
+    findings = []
+    reported = set()  # (rule, fact_id)
+
+    def once(rule, fact_id, level, message, line):
+        if (rule, fact_id) in reported:
+            return
+        reported.add((rule, fact_id))
+        findings.append(Finding(level=level, rule=rule, message=message, location=f"{location}:L{line}"))
+
+    for match in FACT_REF.finditer(text):
+        fact_id = match.group(1)
+        line = _line_of(text, match.start())
+        fact = facts.get(fact_id)
+
+        if fact is None:
+            once("fact.unregistered", fact_id, "error", f"미등록 fact 참조: {match.group(0)}", line)
+            continue
+
+        if not selects(fact.projects, project):
+            once(
+                "project.mismatch",
+                fact_id,
+                "error",
+                f"다른 프로젝트 전용 fact: {fact_id} ({', '.join(fact.projects)}) — 이 제안서는 {project}",
+                line,
+            )
+
+        due = recheck_due(fact, derived)
+        if due is not None and due < today:
+            hint = " (파생 — 입력 기준)" if fact.derived else f" · ppsk verify {fact_id}"
+            once(
+                "fact.stale",
+                fact_id,
+                "error",
+                f"재확인 기한 경과: {fact_id} — 기한 {due} ({(today - due).days}일 초과)" + hint,
+                line,
+            )
+
+    # 면제 마커는 판정이 아니라 리포트다. 늘어나는 게 보여야 숫자 클래스를 고친다 (기획 6장).
+    for match in EXEMPT_MARKER.finditer(text):
+        findings.append(
+            Finding(
+                level="report",
+                rule="exempt.usage",
+                message=f"면제 마커: {match.group(0)}",
+                location=f"{location}:L{_line_of(text, match.start())}",
+            )
+        )
+
+    # 남은 주장성 수치는 등록되지 않은 것이다. 면제 마커와 fact 참조는 이미 지워졌다.
+    for line, matched in find_claims(text):
+        findings.append(
+            Finding(
+                level="error",
+                rule="fact.unregistered",
+                message=f"미등록 주장성 수치: {matched} — facts.yaml 에 등록하거나 면제 마커로 감쌀 것",
+                location=f"{location}:L{line}",
+            )
+        )
+
+    return findings
+
+
+def run_checks(root, proposal=None, today=None):
     """`list[Finding]`. `proposal` 은 `proposals/<slug>/` 경로 — 없으면 리포지토리 전역 검사만.
 
     로더가 낸 Finding(`*.malformed`, `*.unknown_field`, `facts.duplicate_id`,
@@ -61,6 +229,7 @@ def run_checks(root, proposal=None):
     모아 한 번에 보여준다.
     """
     root = Path(root)
+    today = today or date.today()
     findings = []
 
     def collect(loaded):
@@ -68,12 +237,23 @@ def run_checks(root, proposal=None):
         findings.extend(found)
         return value
 
-    collect(load_blocks(root))
+    blocks = collect(load_blocks(root))
     facts = collect(load_facts(root))
-    collect(eval_all_derived(facts))
+    derived = collect(eval_all_derived(facts))
     collect(load_tags(root))
-    collect(load_projects(root))
+    projects = collect(load_projects(root))
 
-    # ponytail: 규칙은 T-12(fact/derived/project)·T-13(tag/block/angle/strict)에서
-    # 이 아래에 붙는다. proposal 을 쓰는 규칙도 그때부터다.
+    findings += _check_projects(blocks, facts, projects)
+
+    if proposal is not None:
+        proposal = Path(proposal)
+        project = _proposal_project(proposal, projects, findings)
+        draft = proposal / DRAFT_FILE
+        if draft.exists():
+            findings += _check_draft(
+                draft.read_text(encoding="utf-8"), f"{proposal.name}/{DRAFT_FILE}", facts, derived, project, today
+            )
+
+    # ponytail: 블록 규칙(tag/block/angle/strict)과 generated_from 은 T-13.
+    # 블록의 project.mismatch 도 generated_from 목록이 필요해 T-13 으로 미뤘다.
     return sort_findings(findings)

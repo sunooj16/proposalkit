@@ -225,6 +225,7 @@ CLAIM = [
 | `derived.forbidden_field` | error |
 | `core.lock_mismatch` | error (+ deviation 자동 기록) |
 | `angle.no_match` | error |
+| `angle.malformed` | error |
 | `block.malformed` | error |
 | `facts.malformed` / `facts.duplicate_id` | error |
 | `tags.malformed` / `projects.malformed` | error |

@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-12 검증 규칙 `fact.*`/`derived.*`/`project.*`)*
+*(없음 — 다음: T-13 검증 규칙 `tag.*`/`block.*`/`angle.no_match`/`strict.*`/`generated_from.*`)*
 
 ---
 
@@ -65,7 +65,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-12 | 검증 규칙 — `fact.*`, `derived.*`, `exempt.usage`, `facts.count_threshold`, `project.unregistered`, `project.mismatch`, `project.unassigned` | `check.py` 확장, `tests/test_check.py` | 규칙 id별 최소 1케이스 | T-17,19 |
 | T-13 | 검증 규칙 — `tag.unregistered`, `block.stale`, `block.draft_used`, `angle.no_match`, `strict.not_verbatim`, `generated_from.mismatch` | 위와 동일 | 공백 정규화 후 축자 대조 | T-16,17 |
 | T-14 | `render.py` — `{{fact}}` 치환, 인라인 마커, `report.md` | `ppsk/render.py` | `--preview` 마커 삽입 / 잔존 시 build 거부 | T-17,19 |
 | T-15 | `cmd_new` — 제안서 스캐폴드 + angle 템플릿 상속 | `ppsk/commands/new.py` | 5파일 생성, `extends` 해석, `--project`를 `angle.md`의 `project:`로 기록 | T-16 |
@@ -92,6 +91,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-12 | 검증 규칙 — fact/derived/project | `feat: check.py — fact·project 검증 규칙 (T-12)` | `fact.unregistered`(미등록 `{{id}}` 참조 + 잔존 주장성 수치), `fact.stale`(파생은 입력 상속 기한, `fixed` 는 영구 통과), `project.unregistered`(블록·fact·`angle.md`), `project.mismatch`(초안이 쓴 타 프로젝트 전용 fact), `project.unassigned`(등록부 있을 때만), `exempt.usage`. 같은 fact 는 여러 번 참조돼도 한 번만 신고. `angle.malformed` 신설 |
 | T-11 | `check.py` 뼈대 | `feat: check.py — run_checks 뼈대 (T-11)` | `run_checks(root, proposal=None)` 가 로더 4종 + 파생 평가 Finding 을 합류. `sort_findings`(레벨→규칙→위치→문구, 미지 레벨은 뒤), `counts`/`summary`, `exit_code`(error 1건이면 1). 규칙은 없음 |
 | T-31 | `cmd_index` 개정 (T-07 개정) | `feat: cmd_index — --project 필터 + 프로젝트 열 (T-31)` | 공용 블록은 항상 포함, 타 프로젝트 전용은 차단. 미등록 id는 exit 1. 프로젝트 열은 소속 없으면 `공용`. `-o/--output` 추가 |
 | T-30 | `cmd_import` 개정 (T-06 개정) | `feat: cmd_import — --project 로 후보 소속 스탬프 (T-30)` | alias 흡수(`cog`→`cogtrain`), 미등록 id는 임포트 전에 exit 1. 미지정 시 `projects: []` + 안내 1줄. fact 후보는 파일 단위 `_project` 한 줄 |
@@ -152,3 +152,6 @@ T-01 프로젝트 골격
 | 2026-08-20 | T-09 완료. devplan §3.6 규칙 표에 없던 id 3개 추가 — `derived.unknown_input`, `derived.invalid_expr`, `derived.invalid_format`. 로더가 내는 `*.malformed`·`*.unknown_field`도 함께 표에 반영 | T-11, T-12, devplan §3.6 |
 | 2026-08-20 | 파생 fact의 `format` 은 선택으로 둠(기본 `{v:g}`). 필수로 하면 계산 결과를 그냥 쓰고 싶을 때도 한 줄을 강제하게 된다 | T-09, T-14 |
 | 2026-08-21 | T-11 완료. `run_checks`는 로더가 낸 Finding 을 합류시키기만 한다 — 규칙은 T-12/13이 이 파일에 붙인다. 블록 `tags` 정규화(→ `tag.unregistered` 발화)는 뼈대에 넣지 않고 T-13이 소유. 미지 레벨은 error 로 올리지도 버리지도 않고 정렬 맨 뒤 | T-12, T-13, T-17 |
+| 2026-08-21 | T-12 완료. 규칙 표에 없던 `angle.malformed`(error) 신설 — `angle.md` frontmatter 가 깨지면 `project:` 를 못 읽어 소속 검사가 조용히 통과한다. `Finding.location` 은 `as_posix()` 로 고정(blocks.py 포함) — `report.md` 는 커밋되는 파일이라 구분자가 OS 마다 달라지면 안 된다. `numbers.FACT_REF` 에 캡처 그룹 추가 | T-13, T-14, T-17, devplan §3.6 |
+| 2026-08-21 | 블록의 `project.mismatch` 는 T-13 으로. 초안이 어떤 블록을 썼는지는 `angle.md` 의 `generated_from` 목록으로만 알 수 있고, 그 목록은 `generated_from.mismatch`(T-13)가 이미 읽는다. 두 곳에서 파싱하지 않게 | T-13 |
+| 2026-08-21 | `tests/fixtures/` 최소 리포지토리는 T-12 에서도 만들지 않음 — `tmp_path` 에 리포지토리를 세우는 헬퍼 하나로 충분했다. 커맨드 레벨 테스트가 필요한 T-17 에서 다시 판단 | T-17, devplan §6 |
