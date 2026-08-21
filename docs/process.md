@@ -50,7 +50,7 @@ T-01 프로젝트 골격
 
 ## 진행 중
 
-*(없음 — 다음: T-11 `check.py` 뼈대. T-10은 T-G1에서 완료)*
+*(없음 — 다음: T-12 검증 규칙 `fact.*`/`derived.*`/`project.*`)*
 
 ---
 
@@ -65,7 +65,6 @@ T-01 프로젝트 골격
 
 | id | 작업 | 산출물 | 완료 조건 | 영향 |
 |---|---|---|---|---|
-| T-11 | `check.py` 뼈대 — `run_checks` + level→exit code | `ppsk/check.py` | Finding 수집·정렬·요약만 | T-12,13,17,22 |
 | T-12 | 검증 규칙 — `fact.*`, `derived.*`, `exempt.usage`, `facts.count_threshold`, `project.unregistered`, `project.mismatch`, `project.unassigned` | `check.py` 확장, `tests/test_check.py` | 규칙 id별 최소 1케이스 | T-17,19 |
 | T-13 | 검증 규칙 — `tag.unregistered`, `block.stale`, `block.draft_used`, `angle.no_match`, `strict.not_verbatim`, `generated_from.mismatch` | 위와 동일 | 공백 정규화 후 축자 대조 | T-16,17 |
 | T-14 | `render.py` — `{{fact}}` 치환, 인라인 마커, `report.md` | `ppsk/render.py` | `--preview` 마커 삽입 / 잔존 시 build 거부 | T-17,19 |
@@ -93,6 +92,7 @@ T-01 프로젝트 골격
 
 | id | 작업 | 커밋 | 비고 |
 |---|---|---|---|
+| T-11 | `check.py` 뼈대 | `feat: check.py — run_checks 뼈대 (T-11)` | `run_checks(root, proposal=None)` 가 로더 4종 + 파생 평가 Finding 을 합류. `sort_findings`(레벨→규칙→위치→문구, 미지 레벨은 뒤), `counts`/`summary`, `exit_code`(error 1건이면 1). 규칙은 없음 |
 | T-31 | `cmd_index` 개정 (T-07 개정) | `feat: cmd_index — --project 필터 + 프로젝트 열 (T-31)` | 공용 블록은 항상 포함, 타 프로젝트 전용은 차단. 미등록 id는 exit 1. 프로젝트 열은 소속 없으면 `공용`. `-o/--output` 추가 |
 | T-30 | `cmd_import` 개정 (T-06 개정) | `feat: cmd_import — --project 로 후보 소속 스탬프 (T-30)` | alias 흡수(`cog`→`cogtrain`), 미등록 id는 임포트 전에 exit 1. 미지정 시 `projects: []` + 안내 1줄. fact 후보는 파일 단위 `_project` 한 줄 |
 | T-29 | `scaffold`/`cmd_init` 개정 (T-05 개정) | `feat: scaffold — projects.yaml 템플릿 + rules 프로젝트 절 (T-29)` | 빈 등록부 + 주석 예시. `docs/rules.md`에 프로젝트 절 추가. 기존 리포지토리에서 `ppsk init` 재실행 시 `projects.yaml`만 추가됨(실행 확인) |
@@ -151,3 +151,4 @@ T-01 프로젝트 골격
 | 2026-08-20 | T-08 완료. `tests/fixtures/` 최소 리포지토리는 만들지 않음 — facts 테스트가 전부 인라인 YAML로 충분했다. 전체 리포지토리가 실제로 필요한 T-12·T-17에서 만든다 | T-12, T-17, devplan §6 |
 | 2026-08-20 | T-09 완료. devplan §3.6 규칙 표에 없던 id 3개 추가 — `derived.unknown_input`, `derived.invalid_expr`, `derived.invalid_format`. 로더가 내는 `*.malformed`·`*.unknown_field`도 함께 표에 반영 | T-11, T-12, devplan §3.6 |
 | 2026-08-20 | 파생 fact의 `format` 은 선택으로 둠(기본 `{v:g}`). 필수로 하면 계산 결과를 그냥 쓰고 싶을 때도 한 줄을 강제하게 된다 | T-09, T-14 |
+| 2026-08-21 | T-11 완료. `run_checks`는 로더가 낸 Finding 을 합류시키기만 한다 — 규칙은 T-12/13이 이 파일에 붙인다. 블록 `tags` 정규화(→ `tag.unregistered` 발화)는 뼈대에 넣지 않고 T-13이 소유. 미지 레벨은 error 로 올리지도 버리지도 않고 정렬 맨 뒤 | T-12, T-13, T-17 |
