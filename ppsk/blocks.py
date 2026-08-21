@@ -45,14 +45,24 @@ def sha(body):
     return hashlib.sha256(normalize_newlines(body).strip().encode("utf-8")).hexdigest()
 
 
-def parse_frontmatter(text):
-    """`(meta, body)` 반환. 구분자가 없으면 FrontmatterError."""
+def split_frontmatter(text):
+    """`(frontmatter 원문, body)`. 구분자가 없으면 FrontmatterError.
+
+    원문을 그대로 돌려주는 쪽이 따로 필요하다 — `generated_from` 처럼 한 키만
+    갈아끼울 때 `yaml.dump` 로 다시 쓰면 주석과 키 순서가 날아간다.
+    """
     match = _FRONTMATTER.match(normalize_newlines(text))
     if match is None:
         raise FrontmatterError("frontmatter 없음 — 파일이 `---` 줄로 시작하고 `---` 로 닫혀야 한다")
+    return match.group(1), match.group(2)
+
+
+def parse_frontmatter(text):
+    """`(meta, body)` 반환. 구분자가 없으면 FrontmatterError."""
+    raw, body = split_frontmatter(text)
 
     try:
-        meta = yaml.safe_load(match.group(1))
+        meta = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
         raise FrontmatterError(f"frontmatter YAML 파싱 실패: {exc}") from exc
 
@@ -61,7 +71,7 @@ def parse_frontmatter(text):
     if not isinstance(meta, dict):
         raise FrontmatterError("frontmatter는 키:값 매핑이어야 한다")
 
-    return meta, match.group(2)
+    return meta, body
 
 
 def block_paths(root):

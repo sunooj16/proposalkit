@@ -11,7 +11,7 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
-from .angle import ANGLE_FILE, load_angle
+from .angle import ANGLE_FILE, load_angle, matches_path
 from .blocks import load_blocks
 from .facts import FACTS_FILE, eval_all_derived, load_facts, value_of
 from .model import Finding
@@ -171,16 +171,6 @@ def _check_block_freshness(blocks, today):
     return findings
 
 
-def _matches(block, entry):
-    """`core/thesis/core-claim` 이 파일(`.md` 생략)과 디렉터리 접두를 모두 받는다.
-
-    사람이 `angle.md` 에 손으로 쓰는 칸이라 확장자를 붙이는지가 일정하지 않다.
-    """
-    path = block.path.as_posix()
-    entry = entry.strip().strip("/")
-    return path == entry or path == f"{entry}.md" or path.startswith(f"{entry}/")
-
-
 def _check_angle(angle, visible, normalized, tags, location):
     """`angle.no_match` — 강조 태그·고정 포함·제외가 어떤 블록과도 맞지 않음.
 
@@ -206,11 +196,11 @@ def _check_angle(angle, visible, normalized, tags, location):
             no_match("강조 태그", tag)
 
     for entry in angle.include:
-        if not any(_matches(block, entry) for block in visible):
+        if not any(matches_path(block.path.as_posix(), entry) for block in visible):
             no_match("고정 포함 경로", entry)
 
     for entry in angle.exclude:
-        if not any(_matches(block, entry) for block in visible):
+        if not any(matches_path(block.path.as_posix(), entry) for block in visible):
             no_match("제외 경로", entry)
 
     return findings

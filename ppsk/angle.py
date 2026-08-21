@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .blocks import FrontmatterError, parse_frontmatter
+from .blocks import FrontmatterError, normalize_newlines, parse_frontmatter, split_frontmatter
 
 ANGLE_FILE = "angle.md"
 
@@ -29,6 +29,10 @@ DEFAULT_GRADE = "강"
 _HEADING = re.compile(r"^#{1,6}\s*(.+?)\s*$")
 _ITEM = re.compile(r"^\s*[-*]\s+(.*)$")
 _GRADE = re.compile(r"\(\s*(.+?)\s*\)\s*$")
+# `generated_from:` 한 키와 그 아래 들여쓴 줄들. frontmatter 원문에만 적용한다.
+_GENERATED_FROM = re.compile(r"^generated_from:.*(?:\n[ \t]+\S.*)*\n?", re.MULTILINE)
+
+SHA_LEN = 7  # 사람이 눈으로 대조하는 길이. 전체 해시는 core.lock 이 든다
 
 
 @dataclass
@@ -129,3 +133,33 @@ def load_angle(path):
         ),
         "",
     )
+
+
+def matches_path(path, entry):
+    """`core/thesis/core-claim` 이 파일(`.md` 생략)과 디렉터리 접두를 모두 받는다.
+
+    사람이 `angle.md` 에 손으로 쓰는 칸이라 확장자를 붙이는지가 일정하지 않다.
+    """
+    entry = entry.strip().strip("/")
+    return path == entry or path == f"{entry}.md" or path.startswith(f"{entry}/")
+
+
+def update_generated_from(text, entries):
+    """`generated_from` 한 키만 갈아끼운 `angle.md` 내용.
+
+    나머지 줄·주석·본문은 그대로 둔다. `yaml.dump` 로 다시 쓰면 사람이 적은
+    `## 강조` 절과 주석이 날아간다 (devplan §4 의 verify 와 같은 이유).
+    """
+    raw, body = split_frontmatter(normalize_newlines(text))
+
+    if entries:
+        block = "generated_from:\n" + "".join(f"  - {path}@{digest}\n" for path, digest in entries)
+    else:
+        block = "generated_from: []\n"
+
+    if _GENERATED_FROM.search(raw):
+        raw = _GENERATED_FROM.sub(lambda _: block, raw, count=1)
+    else:
+        raw = raw.rstrip("\n") + "\n" + block
+
+    return "---\n" + raw.strip("\n") + "\n---\n" + body
